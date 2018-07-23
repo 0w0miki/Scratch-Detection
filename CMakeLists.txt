@@ -16,8 +16,9 @@ if(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
 endif(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
 
 include_directories(
-    $ENV{GENICAM_ROOT_V2_3}/library/CPP/include
-    $ENV{GENICAM_ROOT_V2_3}/../../sdk/include
+    ${PROJECT_SOURCE_DIR}/third_party/camera/include
+    # $ENV{GENICAM_ROOT_V2_3}/library/CPP/include
+    # $ENV{GENICAM_ROOT_V2_3}/../../sdk/include
 )
 
 link_directories(

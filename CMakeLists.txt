@@ -16,6 +16,7 @@ if(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
 endif(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
 
 include_directories(
+    ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/third_party/camera/include
     # $ENV{GENICAM_ROOT_V2_3}/library/CPP/include
     # $ENV{GENICAM_ROOT_V2_3}/../../sdk/include
@@ -31,6 +32,7 @@ link_directories(
 set(CAMERALIBS
     libgxiapi.so
     Threads::Threads
+    libdximageproc.so
     libGCBase_gcc40_v2_3.so
     libGenApi_gcc40_v2_3.so
     liblog4cpp_gcc40_v2_3.so
@@ -43,5 +45,23 @@ add_executable(GxAcquireContinuous
     src/GxAcquireContinuous.cpp
 )
 target_link_libraries(GxAcquireContinuous
+    ${CAMERALIBS}
+)
+
+add_executable(GxAcquireContinuousSofttrigger
+    src/GxAcquireContinuousSofttrigger.cpp
+    src/CameraUtils.cpp
+)
+target_link_libraries(GxAcquireContinuousSofttrigger
+    ${CAMERALIBS}
+)
+
+# demo for image callback
+add_executable(CallbackDemo 
+    src/cam_callback_demo.cpp
+    src/CameraUtils.cpp
+    src/Camera.cpp
+)
+target_link_libraries(CallbackDemo
     ${CAMERALIBS}
 )

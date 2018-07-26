@@ -8,15 +8,22 @@
 //-------------------------------------------------------------
 
 #include "GxIAPI.h"
+#include "DxImageProc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
 
 #define MEMORY_ALLOT_ERROR -1 
 
 GX_DEV_HANDLE g_device = NULL;              ///< 设备句柄
 GX_FRAME_DATA g_frame_data = { 0 };         ///< 采集图像参数
+void *g_raw8_buffer = NULL;                                       ///< 将非8位raw数据转换成8位数据的时候的中转缓冲buffer
+void *g_rgb_frame_data = NULL;                                    ///< RAW数据转换成RGB数据后的存储空间，大小是相机输出数据大小的3倍
+int64_t g_pixel_format = GX_PIXEL_FORMAT_BAYER_GR8;               ///< 当前相机的pixelformat格式
+int64_t g_color_filter = GX_COLOR_FILTER_NONE;                    ///< bayer插值的参数
 pthread_t g_acquire_thread = 0;             ///< 采集线程ID
 bool g_get_image = false;                   ///< 采集线程是否结束的标志：true 运行；false 退出
 
@@ -28,6 +35,9 @@ int UnPreForImage();
 
 //采集线程函数
 void *ProcGetImage(void* param);
+
+//将相机输出的原始数据转换为RGB数据
+void ProcessData(void *image_buffer, void *image_raw8_buffer, void *image_rgb_buffer, int image_width, int image_height, int pixel_format, int color_filter);
 
 //获取错误信息描述
 void GetErrorString(GX_STATUS error_status);
@@ -318,8 +328,99 @@ void *ProcGetImage(void* pParam)
             if(g_frame_data.nStatus == 0)
             {
                 printf("<Successful acquisition : Width: %d Height: %d >\n", g_frame_data.nWidth, g_frame_data.nHeight);
+                //将Raw数据处理成RGB数据
+                ProcessData(g_frame_data.pImgBuf, 
+                        g_raw8_buffer, 
+                        g_rgb_frame_data, 
+                        g_frame_data.nWidth, 
+                        g_frame_data.nHeight,
+                        g_pixel_format,
+                        g_color_filter);
+                //cv::Mat A = cv::imdecode(g_rgb_frame_data,CV_LOAD_IMAGE_COLOR);
+
+                //保存RGB数据
+                //SavePPMFile(g_rgb_frame_data, g_frame_data.nWidth, g_frame_data.nHeight);
             }
         }
+    }
+}
+
+//----------------------------------------------------------------------------------
+/**
+\brief  将相机输出的原始数据转换为RGB数据
+\param  [in] image_buffer  指向图像缓冲区的指针
+\param  [in] image_raw8_buffer  将非8位的Raw数据转换成8位的Raw数据的中转缓冲buffer
+\param  [in,out] image_rgb_buffer  指向RGB数据缓冲区的指针
+\param  [in] image_width 图像宽
+\param  [in] image_height 图像高
+\param  [in] pixel_format 图像的格式
+\param  [in] color_filter Raw数据的像素排列格式
+\return 无返回值
+*/
+//----------------------------------------------------------------------------------
+void ProcessData(void *image_buffer, void *image_raw8_buffer, void *image_rgb_buffer, int image_width, int image_height, int pixel_format, int color_filter)
+{
+    switch(pixel_format)
+    {
+        //当数据格式为12位时，位数转换为4-11
+        case GX_PIXEL_FORMAT_BAYER_GR12:
+        case GX_PIXEL_FORMAT_BAYER_RG12:
+        case GX_PIXEL_FORMAT_BAYER_GB12:
+        case GX_PIXEL_FORMAT_BAYER_BG12:
+            //将12位格式的图像转换为8位格式
+            DxRaw16toRaw8(image_buffer, image_raw8_buffer, image_width, image_height, DX_BIT_4_11);	
+            //将Raw8图像转换为RGB图像以供显示
+            DxRaw8toRGB24(image_raw8_buffer, image_rgb_buffer, image_width, image_height, RAW2RGB_NEIGHBOUR,
+                DX_PIXEL_COLOR_FILTER(color_filter), false);		        
+            break;
+
+        //当数据格式为10位时，位数转换为2-9
+        case GX_PIXEL_FORMAT_BAYER_GR10:
+        case GX_PIXEL_FORMAT_BAYER_RG10:
+        case GX_PIXEL_FORMAT_BAYER_GB10:
+        case GX_PIXEL_FORMAT_BAYER_BG10:
+            //将10位格式的图像转换为8位格式,有效位数2-9
+            DxRaw16toRaw8(image_buffer, image_raw8_buffer, image_width, image_height, DX_BIT_2_9);
+            //将Raw8图像转换为RGB图像以供显示
+            DxRaw8toRGB24(image_raw8_buffer, image_rgb_buffer, image_width, image_height,RAW2RGB_NEIGHBOUR,
+                DX_PIXEL_COLOR_FILTER(color_filter),false);	
+            break;
+
+        case GX_PIXEL_FORMAT_BAYER_GR8:
+        case GX_PIXEL_FORMAT_BAYER_RG8:
+        case GX_PIXEL_FORMAT_BAYER_GB8:
+        case GX_PIXEL_FORMAT_BAYER_BG8:
+            //将Raw8图像转换为RGB图像以供显示
+            //g_time_counter.Begin();
+            DxRaw8toRGB24(image_buffer,image_rgb_buffer, image_width, image_height,RAW2RGB_NEIGHBOUR,
+                DX_PIXEL_COLOR_FILTER(color_filter),false);	
+            //printf("<DxRaw8toRGB24 time consuming: %ld us>\n", g_time_counter.End());
+            break;
+
+        case GX_PIXEL_FORMAT_MONO12:
+            //将12位格式的图像转换为8位格式
+            DxRaw16toRaw8(image_buffer, image_raw8_buffer, image_width, image_height, DX_BIT_4_11);	
+            //将Raw8图像转换为RGB图像以供显示
+            DxRaw8toRGB24(image_raw8_buffer, image_rgb_buffer, image_width, image_height, RAW2RGB_NEIGHBOUR,
+                DX_PIXEL_COLOR_FILTER(NONE),false);		        
+            break;
+
+        case GX_PIXEL_FORMAT_MONO10:
+            //将10位格式的图像转换为8位格式
+            DxRaw16toRaw8(image_buffer, image_raw8_buffer, image_width, image_height, DX_BIT_4_11);	
+            //将Raw8图像转换为RGB图像以供显示
+            DxRaw8toRGB24(image_raw8_buffer, image_rgb_buffer, image_width, image_height,RAW2RGB_NEIGHBOUR,
+                DX_PIXEL_COLOR_FILTER(NONE),false);		        
+            break;
+
+        case GX_PIXEL_FORMAT_MONO8:
+            //将Raw8图像转换为RGB图像以供显示
+            DxRaw8toRGB24(image_buffer, image_rgb_buffer, image_width, image_height,RAW2RGB_NEIGHBOUR,
+            DX_PIXEL_COLOR_FILTER(NONE),false);		        
+            break;
+
+        default:
+            break;
     }
 }
 

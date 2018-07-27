@@ -33,6 +33,8 @@ private:
     size_t g_frameinfo_datasize_;                               ///< 帧信息数据长度
 
     CTimeCounter g_time_counter_;                                ///< 计时器
+
+    std::vector<ROI> ROIs_;
     // GX_DEV_HANDLE g_device_ = NULL;                                    ///< 设备句柄
     // GX_FRAME_DATA g_frame_data_ = { 0 };                               ///< 采集图像参数
     // void *g_raw8_buffer_ = NULL;                                       ///< 将非8位raw数据转换成8位数据的时候的中转缓冲buffer
@@ -81,6 +83,8 @@ public:
     int setGain(double gain_value);
     // 进行软触发
     int sendSoftTrigger();
+    // 设置ROI
+    void setROI(std::vector<ROI> rois);
 };
 
 

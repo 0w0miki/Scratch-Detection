@@ -22,8 +22,8 @@ struct ROI
 {
     int x;
     int y;
-    int w;
-    int h;
+    int32_t w;
+    int32_t h;
 };
 
 // 限幅

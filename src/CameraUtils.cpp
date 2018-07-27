@@ -202,15 +202,18 @@ void SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vecto
         SavePPMFile(image_buffer, width, height);
         return;
     }
-
+    void* ROI_buffer = image_buffer;
     for(size_t i = 0;i<ROIs.size();i++){
         sprintf(name, "RGB%d.ppm", rgb_file_index++);
         ff=fopen(name,"wb");
         if(ff != NULL)
         {
-            fprintf(ff, "P6\n" "%d %d\n255\n", ROIs[i].w, ROIs[i].h);
+            fprintf(ff, "P6\n" "%zu %zu\n255\n", ROIs[i].w, ROIs[i].h);
+            ROI_buffer = image_buffer + (ROIs[i].y * width + ROIs[i].x) * 3;
+            printf("x,y %d\n",(ROIs[i].y * ROIs[i].w + ROIs[i].x) * 3);
             for(size_t j = 0; j < ROIs[i].h; j++){
-                fwrite(image_buffer, 1, ROIs[i].w * 3, ff);
+                ROI_buffer = ROI_buffer + width * 3;
+                fwrite(ROI_buffer, 1, ROIs[i].w * 3, ff);
             }
             fclose(ff);
             ff = NULL;

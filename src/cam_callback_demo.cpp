@@ -55,6 +55,23 @@ int main()
     //发送开采命令
     ret = camera.start();
     if(ret != 0) printf("[WARN] failed to start camera");
+
+    std::vector<ROI> rois;
+    struct ROI a = {
+        .x=0,
+        .y=0,
+        .w=400,
+        .h=500
+    };
+    rois.push_back(a);
+    struct ROI b = {
+        .x=700,
+        .y=800,
+        .w=400,
+        .h=500
+    };
+    rois.push_back(b);
+    camera.setROI(rois);
     
     printf("====================Menu================\n");
     printf("[X or x]:Exit\n");

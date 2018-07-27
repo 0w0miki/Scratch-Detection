@@ -212,8 +212,14 @@ void Camera::ProcGetImage(){
                         g_pixel_format_,
                         g_color_filter_); 
                 
-                //保存RGB数据
-                SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
+                if(ROIs_.size()>0){
+                    SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight,ROIs_);
+                }else{
+                    //保存RGB数据
+                    SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
+                }
+
+                
                 
                 printf("time of process %ld us\n", g_time_counter_.End());
             }
@@ -568,4 +574,15 @@ int Camera::setGain(double gain_value){
     status = GXSetFloat(g_device_, GX_FLOAT_GAIN, gain_value);
     printf("set blue balance ratio %f, range %f ,%f\n",gain_value, gainRange.dMin, gainRange.dMax);
     return status;
+}
+
+//-------------------------------------------------
+/**
+\brief 设置ROI
+\param [in] rois 
+\return void 
+*/
+//-------------------------------------------------
+void Camera::setROI(std::vector<ROI> rois){
+    ROIs_ = rois;
 }

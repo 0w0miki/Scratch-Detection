@@ -40,28 +40,22 @@ set(CAMERALIBS
     libMathParser_gcc40_v2_3.so
 )
 
-# demo for continuous capture
-add_executable(GxAcquireContinuous 
-    src/GxAcquireContinuous.cpp
-)
-target_link_libraries(GxAcquireContinuous
-    ${CAMERALIBS}
-)
-
-add_executable(GxAcquireContinuousSofttrigger
-    src/GxAcquireContinuousSofttrigger.cpp
-    src/CameraUtils.cpp
-)
-target_link_libraries(GxAcquireContinuousSofttrigger
-    ${CAMERALIBS}
-)
-
-# demo for image callback
-add_executable(CallbackDemo 
-    src/cam_callback_demo.cpp
+# demo for camera
+add_executable(CameraDemo 
+    src/camera_demo.cpp
     src/CameraUtils.cpp
     src/Camera.cpp
 )
-target_link_libraries(CallbackDemo
+target_link_libraries(CameraDemo
     ${CAMERALIBS}
+)
+
+# demo for detector
+add_executable(DetectDemo 
+    src/detect_demo.cpp
+    src/detector.cpp
+    src/DetectUtils.cpp
+)
+target_link_libraries(DetectDemo
+    ${OpenCV_LIBS}
 )

@@ -14,23 +14,6 @@ g_frameinfo_datasize_(0)
 {
 }
 
-
-Camera::Camera(GX_DEV_HANDLE device):
-g_device_(NULL),
-g_frame_data_({0}),
-g_raw8_buffer_(NULL),
-g_rgb_frame_data_(NULL),
-g_pixel_format_(GX_PIXEL_FORMAT_BAYER_GR8),
-g_color_filter_(GX_COLOR_FILTER_NONE),
-g_acquire_thread_(0),
-g_get_image_(false),
-g_frameinfo_data_(NULL),
-g_frameinfo_datasize_(0)
-{
-    g_device_ = device;
-}
-
-
 Camera::~Camera()
 {
     stop();

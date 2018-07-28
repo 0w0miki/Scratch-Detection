@@ -192,6 +192,16 @@ void SavePPMFile(void *image_buffer, size_t width, size_t height){
     }
 }
 
+//-------------------------------------------------
+/**
+\brief 保存ROI内的内存数据到ppm格式文件中
+\param image_buffer RAW数据经过插值换算出的RGB数据
+\param width 图像宽
+\param height 图像高
+\param ROIs 各ROI
+\return void
+*/ 
+//-------------------------------------------------
 void SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vector<ROI> ROIs){
     char name[64] = {0};
 

@@ -18,6 +18,7 @@ endif(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/third_party/camera/include
+    ${PROJECT_SOURCE_DIR}/third_party/jsoncpp
     # $ENV{GENICAM_ROOT_V2_3}/library/CPP/include
     # $ENV{GENICAM_ROOT_V2_3}/../../sdk/include
 )
@@ -55,6 +56,7 @@ add_executable(DetectDemo
     src/detect_demo.cpp
     src/detector.cpp
     src/DetectUtils.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(DetectDemo
     ${OpenCV_LIBS}

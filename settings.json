@@ -5,5 +5,18 @@
         "Green Balance ratio":1.0000,
         "Blue Balance ratio":1.9414,
         "Gain":20.00
+    },
+    "detection":{
+        "thresh":{
+            "bin thresh": 40,
+            "k_pos": 0.01,
+            "k_scratch": 0.001,
+            "k_bigpro": 0.001
+        },
+        "switch":{
+            "save img": false,
+            "save result log": true,
+            "show time": true
+        }
     }
 }

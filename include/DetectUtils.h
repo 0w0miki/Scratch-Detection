@@ -59,6 +59,7 @@ void myIdft(Mat& src, Mat& dst);
 // Sobel边缘检测
 void getSobel(Mat src_gray, Mat & grad, int order);
 
+// 调整大小和第二个图一致
 void adjustSize(Mat &img1, Mat img2);
 
 #endif

@@ -1,13 +1,41 @@
 #include "detector.h"
 
-Detector::Detector(/* args */)
+Detector::Detector():
+    bin_thresh_(40),
+    k_pos_(0.01),
+    k_scratch_(0.001),
+    k_bigpro_(0.001),
+    save_result_switch_(true),
+    d_width_(400),
+    d_height_(600),
+    id_(1)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
+    string filename = "result.csv";
+    result_log_.open(filename,ios::out);
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+}
+
+Detector::Detector(char* filename):
+    bin_thresh_(40),
+    k_pos_(0.01),
+    k_scratch_(0.001),
+    k_bigpro_(0.001),
+    d_width_(400),
+    d_height_(600),
+    save_result_switch_(true),
+    id_(1)
+{
+    std::vector<cv::Point2f> points(4);
+    img_points_ = points;
+    result_log_.open(filename,ios::out);
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
 }
 
 Detector::~Detector()
 {
+    result_log_.close();
 }
 
 //-------------------------------------------------
@@ -26,7 +54,7 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     cv::equalizeHist(image_gray,image_gray);
     // adaptiveThreshold(image_gray, image_bin, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY, 27, 5);
 
-    image_bin = image_gray > 40;
+    image_bin = image_gray > bin_thresh_;
     Erosion(image_bin, image_bin,0,12);
     Dilation(image_bin, image_bin,0,12);
     // namedWindow("gray",CV_WINDOW_NORMAL);
@@ -276,12 +304,12 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
 \return Mat 标签图像
 */ 
 //-------------------------------------------------
-cv::Mat Detector::getLabelImg(Mat img, int width, int height){
+cv::Mat Detector::getLabelImg(Mat img){
     float size_thresh_k = 0.6;
     Mat image_bin, dst;
-    int size_thresh = size_thresh_k * width * height;
-    cout<<"width, height"<<width<<","<<height<<endl;
-    cout<<"thresh"<<size_thresh<<endl;
+    int size_thresh = size_thresh_k * d_width_ * d_height_;
+    // cout<<"d_width_, d_height_" << d_width_ << "," << d_height_ << endl;
+    // cout<<"thresh"<<size_thresh<<endl;
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     Mat mask = Mat::zeros(img.size(),CV_8U);
@@ -397,16 +425,18 @@ cv::Mat Detector::search(Mat img, Mat template_img){
 \return int 
 */ 
 //-------------------------------------------------
-int Detector::checkPos(Mat & adjust_match) {
+int Detector::checkPos() {
     // 偏差
+    auto t_checkPos_bef = chrono::system_clock::now();
+    cv::Mat adjust_match;
     cv::Mat diff;
     vector<Mat> mats;
     int i,j;
     for(i=0;i<3;i++){
         for(j=0;j<3;j++){
             Mat mat;
-            mat= Mat::zeros(img_.rows, img_.cols, CV_8U);
-            image_transfrom(img_, mat,j-1,i-1);
+            mat= Mat::zeros(img_gray_.rows, img_gray_.cols, CV_8U);
+            image_transfrom(img_gray_, mat,j-1,i-1);
             absdiff(template_img_, mat, diff);
             diff.convertTo(diff,CV_64F);
             diff=diff.mul(diff);
@@ -422,39 +452,73 @@ int Detector::checkPos(Mat & adjust_match) {
     // 25个矩阵求最小值
     image_min(mats,adjust_match);
     // imshow("adjust_match",adjust_match);
-    Scalar diff_sum = sum(adjust_match);
+    Scalar diff_sum = sum(adjust_match)/255;
+    if(save_img_switch_){
+        saveImg("pos",255-adjust_match);
+    }
+    if(save_result_switch_){
+        result_log_ << diff_sum[0] << ",";
+        if(diff_sum[0] < pos_thresh_){
+            result_log_ << ",";
+            if(show_time_switch_){
+                auto t_checkPos_end = chrono::system_clock::now();
+                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_bef-t_checkPos_end).count() << "ms\n";
+            }
+        }else{
+            result_log_<<"position fault,";
+            if(show_time_switch_){
+                auto t_checkPos_end = chrono::system_clock::now();
+                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_bef-t_checkPos_end).count() << "ms\n";
+            }
+        }
+    }
     return diff_sum[0];
 }
 
 //-------------------------------------------------
 /**
 \brief 尺寸检测
-\param [in] points 角点
-\param [in] d_width 期望宽
-\param [in] d_height 期望高
-\param [in] size_thresh 阈值
-\return void
+\param 
+\return int 0 ok 1 fault
 */ 
 //-------------------------------------------------
-void Detector::checkSize(std::vector<Point2f> & points, float d_width, float d_height, float size_thresh) {
+int Detector::checkSize() {
     // 1 2
     // 4 3
-    float width = 0;
-    float height = 0;
+    auto t_size_bef = chrono::system_clock::now();
+    float width2 = 0;
+    float height2 = 0;
     int i;
     for(i = 0; i < 4; i+=2){
-        float xw = points[i+1].x - points[i].x;
-        float yw = points[i+1].y - points[i].y;
-        width = max(width,xw * xw + yw * yw);//123212.64286916\120909
+        float xw = img_points_[i+1].x - img_points_[i].x;
+        float yw = img_points_[i+1].y - img_points_[i].y;
+        width2 = max(width2,xw * xw + yw * yw);//123212.64286916\120909
     }
     for(i = 0; i < 2; i++){
-        float xw = points[3-i].x - points[i].x;
-        float yw = points[3-i].y - points[i].y;
-        height = max(height,xw * xw + yw * yw);
+        float xw = img_points_[3-i].x - img_points_[i].x;
+        float yw = img_points_[3-i].y - img_points_[i].y;
+        height2 = max(height2,xw * xw + yw * yw);
     }
-    std::cout << "width:"<<width<<"height:"<<height << '\n';
-    if(abs(width - d_width*d_width)>size_thresh && abs(height - d_height*d_height)>size_thresh){
+    std::cout << "width2: "<<width2<<" height2: "<<height2 << '\n';
+    if( abs(width2 - d_width_ * d_width_) > size_thresh_ && abs(height2 - d_height_ * d_height_) > size_thresh_ ){
         std::cout << "size fault" << '\n';
+        if(save_result_switch_){
+            result_log_ << "size fault";
+        }
+        if(show_time_switch_){
+            auto t_size_end = chrono::system_clock::now();
+            cout<< "size time " << chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count() << "ms\n";
+        }
+        return 1;
+    }else{
+        if(save_result_switch_){
+            result_log_ << "size ok";
+        }
+        if(show_time_switch_){
+            auto t_size_end = chrono::system_clock::now();
+            cout<< "size time " << chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count() << "ms\n";
+        }
+        return 0;
     }
     //369330,370568
 }
@@ -462,14 +526,14 @@ void Detector::checkSize(std::vector<Point2f> & points, float d_width, float d_h
 //-------------------------------------------------
 /**
 \brief 划痕检测
-\param [in] template_img 模板图像
-\param [in] det_img 待测图像
-\param [in] diff 结果图像
-\return int 
+\param 
+\return int 0: ok 1: fault
 */ 
 //-------------------------------------------------
-int Detector::checkScratch(Mat & diff) {
-    Mat common,A,B,template_label_bin,diff_white;
+int Detector::checkScratch() {
+    auto t_scratch_bef = chrono::system_clock::now();
+    show_time_switch_;
+    Mat common,A,B,template_label_bin,diff_white,diff;
     threshold(template_label_,template_label_bin,240,255,0);
     /****************** white ******************/
     // 检测有颜色部分的瑕疵
@@ -498,7 +562,6 @@ int Detector::checkScratch(Mat & diff) {
     // imshow("label_",B);
     threshold(A,A,250,255,1);
     threshold(B,B,250,255,1);
-    
 
     common = getCommon(A,B,3);
     // namedWindow("common",CV_WINDOW_NORMAL);
@@ -507,23 +570,46 @@ int Detector::checkScratch(Mat & diff) {
     diff = search(diff,template_label_bin);
     bitwise_or(diff,diff_white,diff);
     // absdiff(template_label_,label_,diff);
-    Scalar diff_sum = sum(diff);
+    Scalar diff_sum = sum(diff)/255;
     std::cout << "diff score"<<diff_sum[0] << '\n';
     // namedWindow("diff",CV_WINDOW_NORMAL);
     // imshow("diff",diff);
+
+    // log
+    if(save_img_switch_){
+       saveImg("scratch", diff); 
+    }
+    if(save_result_switch_){
+        result_log_ << diff_sum[0];
+        if(diff_sum[0] < scratch_thresh_){
+            result_log_ << '\n';
+            if(show_time_switch_){
+                auto t_scratch_end = chrono::system_clock::now();
+                cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
+            }
+            // return 0;
+        }else{
+            result_log_ << ",scratch fault" << '\n';
+            if(show_time_switch_){
+                auto t_scratch_end = chrono::system_clock::now();
+                cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
+            }
+            // return 1;
+        }
+    }
     return diff_sum[0];
 }
 
 //-------------------------------------------------
 /**
 \brief 显著瑕疵检测
-\param [in] template_img 模板图像
-\param [in] det_img 待测图像
-\param [in] diff 结果图像
-\return int 
+\param 
+\return int 0:ok 1:fault
 */ 
 //-------------------------------------------------
-int Detector::checkBigProblem(Mat &bpres){
+int Detector::checkBigProblem(){
+    auto t_bp_bef = chrono::system_clock::now();
+    Mat res;
     int noise_thresh = 4;
     Mat diff, temp, common;
     vector<Mat> mats;
@@ -544,46 +630,125 @@ int Detector::checkBigProblem(Mat &bpres){
     common = getCommon(T,P,5);
     // namedWindow("wlcommon",CV_WINDOW_NORMAL);
     // imshow("wlcommon",common);
-    bitwise_xor(P,common,bpres);
-    Scalar diff_sum = sum(bpres)/255;
+    bitwise_xor(P,common,res);
+    Scalar diff_sum = sum(res)/255;
     std::cout << "bp score"<<diff_sum[0] << '\n';
     
-    // namedWindow("wldiff",CV_WINDOW_NORMAL);
-    // imshow("wldiff",bpres);
-    // imshow("P",P);
-    // imshow("T",T);
+    if(save_img_switch_){
+        saveImg("bp", res);
+    }
+    // log
+    if(save_result_switch_){
+        result_log_ << "," << diff_sum[0];
+        if(diff_sum[0] < bigpro_thresh_){
+            result_log_ << ",";
+            if(show_time_switch_){
+                auto t_bp_end = chrono::system_clock::now();
+                cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
+            }
+            // return 0;
+        }else{
+            result_log_<<",bigpro fault"<<',';
+            if(show_time_switch_){
+                auto t_bp_end = chrono::system_clock::now();
+                cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
+            }
+            // return 1;
+        }
+    }
     return diff_sum[0];
 }
 
-void Detector::crossIntegral(cv::Mat M1, cv::Mat M2, cv::Mat& crosssum) {
-    Mat product = Mat();
-    Mat M1_64 = Mat();
-    Mat M2_64 = Mat();
-    // check size
-    if (M1.size()!=M2.size()) {
-        return;
-    }
-
-    M1.convertTo(M1_64,CV_64F);
-    M2.convertTo(M2_64,CV_64F);
-    // 对应元素相乘 注意需要转成CV_64F
-    product = M1_64.mul(M2_64);
-    cv::integral(product, crosssum, CV_64F);
-}
-
+//-------------------------------------------------
+/**
+\brief 设置原图
+\param [in] img 原图
+\return void 
+*/ 
+//-------------------------------------------------
 void Detector::setOriginImg(cv::Mat img){
     template_img_ = img;
-    template_label_ = getLabelImg(template_img_, template_img_.size().width, template_img_.size().height);
+    template_label_ = getLabelImg(template_img_);
+    id_ = 0;
 }
 
+//-------------------------------------------------
+/**
+\brief 设置待测图像
+\param [in] img 拍到的ROI图像
+\return void 
+*/ 
+//-------------------------------------------------
 void Detector::setImg(cv::Mat img){
-    img_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    findLabel(img, img_, img_points_);
+    img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
+    findLabel(img, img_gray_, img_points_);
     
     //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
-    label_ = getLabelImg(img_, img_.size().width, img_.size().height);
+    label_ = getLabelImg(img_gray_);
     adjustSize(label_, template_label_);
+    id_++;
     // imshow("label_",label_);
     // waitKey();
-    // getROI(img_, label_);
+    // getROI(img_gray_, label_);
+}
+
+void Detector::saveImg(string pre, cv::Mat img){
+    string Output_Path = "../Output/images/";
+    string suffix = ".jpg";
+    string Output_name = Output_Path + pre + to_string(id_) + suffix; 
+    imwrite(Output_name, img);
+}
+
+int Detector::setParam(){
+
+	std::ifstream paramfile;
+	paramfile.open("../settings.json", std::ios::binary);
+    if(!paramfile){
+        printf("[ERROR] failed to open settings.json\n");
+        return -1;
+    }else{
+        Json::CharReaderBuilder builder;
+	    Json::Value root;
+        builder["collectComments"] = false;
+        JSONCPP_STRING errs;
+        if (parseFromStream(builder, paramfile, &root, &errs)){
+            bin_thresh_ = root["detection"]["thresh"]["bin thresh"].empty()  ?  bin_thresh_  :  root["detection"]["thresh"]["bin thresh"].asFloat();
+            k_pos_      = root["detection"]["thresh"]["k_pos"].empty()       ?  k_pos_       :  root["detection"]["thresh"]["k_pos"].asFloat();
+            k_scratch_  = root["detection"]["thresh"]["k_scratch"].empty()   ?  k_scratch_   :  root["detection"]["thresh"]["k_scratch"].asFloat();
+            k_bigpro_   = root["detection"]["thresh"]["k_bigpro"].empty()    ?  k_bigpro_    :  root["detection"]["thresh"]["k_bigpro"].asFloat();
+            save_img_switch_ = root["detection"]["switch"]["save img"].empty()           ? save_img_switch_    : root["detection"]["switch"]["save img"].asBool();
+            save_result_switch_ = root["detection"]["switch"]["save result log"].empty() ? save_result_switch_ : root["detection"]["switch"]["save result log"].asBool();
+            show_time_switch_ = root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
+        }else{
+            cout << "[ERROR] Jsoncpp error: " << errs << endl;
+        }
+        paramfile.close();
+    }
+    return 0;
+}
+
+void Detector::setThresh(){
+
+    Mat temp = template_img_ > bin_thresh_;
+    Scalar temp_sum = sum(temp)/255;
+    cout<<"temp sum: "<<temp_sum[0]<<endl;
+
+    Mat temp_label = template_label_ > bin_thresh_;
+    Scalar label_sum = sum(temp_label)/255;
+    cout<<"temp label sum: "<<label_sum[0]<<endl;
+
+    pos_thresh_ = temp_sum[0] * k_pos_;
+    scratch_thresh_ = label_sum[0] * k_scratch_;
+    bigpro_thresh_ = label_sum[0] * k_bigpro_;
+    size_thresh_ = 3600;
+    
+    d_width_ = 400;
+    d_height_ = 600;
+}
+
+int Detector::detect(){
+    int size = checkSize();
+    int pos_res = checkPos();
+    int bigpro_res = checkBigProblem();
+    int scratch_res = checkScratch();
 }

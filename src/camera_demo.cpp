@@ -36,21 +36,8 @@ int main()
     // 设置触发
     camera.setTrigger();
     
-    // 设置曝光
-    ret = camera.setShutter(10000.0000);
-    if(ret != 0) printf("[WARN] failed to set shutter");
-
-    // 设置白平衡
-    ret = camera.setBalance(1.6523, CAM_RED_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set red balance");
-    ret = camera.setBalance(1.0000, CAM_GREEN_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set green balance");
-    ret = camera.setBalance(1.9414, CAM_BLUE_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set blue balance");
-
-    // 设置增益
-    ret = camera.setGain(20.00);
-    if(ret != 0) printf("[WARN] failed to set gain");
+    ret = camera.applyParam();
+    if(ret != 0) printf("some thing error with camera parameter");
 
     //发送开采命令
     ret = camera.start();

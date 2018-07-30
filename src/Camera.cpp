@@ -1,6 +1,7 @@
 #include "Camera.h"
 
 Camera::Camera():
+cam_id_(1),
 g_device_(NULL),
 g_frame_data_({0}),
 g_raw8_buffer_(NULL),
@@ -10,8 +11,30 @@ g_color_filter_(GX_COLOR_FILTER_NONE),
 g_acquire_thread_(0),
 g_get_image_(false),
 g_frameinfo_data_(NULL),
-g_frameinfo_datasize_(0)
+g_frameinfo_datasize_(0),
+file_dir_("../images/test/")
 {
+    mutex_ = new pthread_mutex_t;
+    pthread_mutex_init(mutex_, NULL);
+    unsolved_list_ = new std::queue<std::string>;
+}
+
+Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list):
+cam_id_(1),
+g_device_(NULL),
+g_frame_data_({0}),
+g_raw8_buffer_(NULL),
+g_rgb_frame_data_(NULL),
+g_pixel_format_(GX_PIXEL_FORMAT_BAYER_GR8),
+g_color_filter_(GX_COLOR_FILTER_NONE),
+g_acquire_thread_(0),
+g_get_image_(false),
+g_frameinfo_data_(NULL),
+g_frameinfo_datasize_(0),
+file_dir_("../images/test/")
+{
+    mutex_ = mutex;
+    unsolved_list_ = unsolved_list;
 }
 
 Camera::~Camera()
@@ -194,16 +217,13 @@ void Camera::ProcGetImage(){
                         g_frame_data_.nHeight,
                         g_pixel_format_,
                         g_color_filter_); 
-                
+
                 if(ROIs_.size()>0){
                     SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight,ROIs_);
                 }else{
                     //保存RGB数据
                     SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
                 }
-
-                
-                
                 printf("time of process %ld us\n", g_time_counter_.End());
             }
         }
@@ -217,14 +237,14 @@ void Camera::ProcGetImage(){
 \return int
 */
 //------------------------------------------------- 
-int Camera::init(int cam_id){
+int Camera::init(){
     GX_STATUS status = GX_STATUS_SUCCESS;
     int ret = 0;
     GX_OPEN_PARAM open_param;
 
     //初始化设备打开参数，默认打开序号为１的设备
     char cam_id_string[10];
-    sprintf(cam_id_string,"%d",cam_id);
+    sprintf(cam_id_string,"%d",cam_id_);
     open_param.accessMode = GX_ACCESS_EXCLUSIVE;
     open_param.openMode = GX_OPEN_INDEX;
     open_param.pszContent = cam_id_string;       
@@ -374,6 +394,82 @@ int Camera::stop(){
     //释放库
     status = GXCloseLib();
     return status;
+}
+
+//-------------------------------------------------
+/**
+\brief 保存内存数据到ppm格式文件中
+\param image_buffer RAW数据经过插值换算出的RGB数据
+\param width 图像宽
+\param height 图像高
+\return void
+*/ 
+//-------------------------------------------------
+void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
+    char name[64] = {0};
+    char filename[64];
+    // static int rgb_file_index = 1;
+    FILE* ff = NULL;
+
+    sprintf(name, "RGB%d.ppm", rgb_file_index++);
+    sprintf(filename,"%s%s",file_dir_.data(),name);
+    ff=fopen(filename,"wb");
+    if(ff != NULL)
+    {
+        fprintf(ff, "P6\n" "%zu %zu\n255\n", width, height);
+        fwrite(image_buffer, 1, width * height * 3, ff);
+        fclose(ff);
+        ff = NULL;
+        pthread_mutex_lock(mutex_);
+        unsolved_list_->push(name);
+        pthread_mutex_unlock(mutex_);
+        printf("<Save %s success>\n", name);
+    }
+}
+
+//-------------------------------------------------
+/**
+\brief 保存ROI内的内存数据到ppm格式文件中
+\param image_buffer RAW数据经过插值换算出的RGB数据
+\param width 图像宽
+\param height 图像高
+\param ROIs 各ROI
+\return void
+*/ 
+//-------------------------------------------------
+void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vector<ROI> ROIs){
+    char name[64] = {0};
+    char filename[64];
+    // static int rgb_file_index = 1;
+    FILE* ff = NULL;
+    
+    if(ROIs.empty()){
+        SavePPMFile(image_buffer, width, height);
+        return;
+    }
+    void* ROI_buffer = image_buffer;
+    for(size_t i = 0;i<ROIs.size();i++){
+        sprintf(name, "RGB%d.ppm", rgb_file_index++);
+        sprintf(filename,"%s%s",file_dir_.data(),name);
+        printf("filename:%s",filename);
+        ff=fopen(filename,"wb");
+        if(ff != NULL)
+        {
+            fprintf(ff, "P6\n" "%zu %zu\n255\n", ROIs[i].w, ROIs[i].h);
+            ROI_buffer = image_buffer + (ROIs[i].y * width + ROIs[i].x) * 3;
+            printf("x,y %d\n",(ROIs[i].y * ROIs[i].w + ROIs[i].x) * 3);
+            for(size_t j = 0; j < ROIs[i].h; j++){
+                ROI_buffer = ROI_buffer + width * 3;
+                fwrite(ROI_buffer, 1, ROIs[i].w * 3, ff);
+            }
+            fclose(ff);
+            ff = NULL;
+            pthread_mutex_lock(mutex_);
+            unsolved_list_->push(name);
+            pthread_mutex_unlock(mutex_);
+            printf("<Save %s success>\n", name);
+        }
+    }
 }
 
 //-------------------------------------------------
@@ -555,7 +651,7 @@ int Camera::setGain(double gain_value){
     limitDoubleValue(gain_value, gainRange);
     //设置增益值
     status = GXSetFloat(g_device_, GX_FLOAT_GAIN, gain_value);
-    printf("set blue balance ratio %f, range %f ,%f\n",gain_value, gainRange.dMin, gainRange.dMax);
+    printf("set gain %f, range %f ,%f\n",gain_value, gainRange.dMin, gainRange.dMax);
     return status;
 }
 
@@ -568,4 +664,48 @@ int Camera::setGain(double gain_value){
 //-------------------------------------------------
 void Camera::setROI(std::vector<ROI> rois){
     ROIs_ = rois;
+}
+
+int Camera::applyParam(){
+    std::ifstream paramfile;
+	paramfile.open("../settings.json", std::ios::binary);
+    if(!paramfile){
+        printf("[ERROR] failed to open settings.json\n");
+        return -1;
+    }else{
+        Json::CharReaderBuilder builder;
+	    Json::Value root;
+        builder["collectComments"] = false;
+        JSONCPP_STRING errs;
+        if (parseFromStream(builder, paramfile, &root, &errs)){
+            shutter_time_  = root["camera"]["shutter time"].empty()        ?  shutter_time_  : root["camera"]["shutter time"].asDouble();
+            red_balance_   = root["camera"]["Red Balance ratio"].empty()   ?  red_balance_   : root["camera"]["Red Balance ratio"].asDouble();
+            green_balance_ = root["camera"]["Green Balance ratio"].empty() ?  green_balance_ : root["camera"]["Green Balance ratio"].asDouble();
+            blue_balance_  = root["camera"]["Blue Balance ratio"].empty()  ?  blue_balance_  : root["camera"]["Blue Balance ratio"].asDouble();
+            gain_value_    = root["camera"]["Gain"].empty()                ?  gain_value_    : root["camera"]["Gain"].asDouble();
+            cam_id_        = root["camera"]["id"].empty()                  ?  cam_id_    : root["camera"]["id"].asInt();
+            file_dir_      = root["detection"]["file"]["image directory"].empty() ? file_dir_ : root["detection"]["file"]["image directory"].asString();
+        }else{
+            std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
+        }
+        paramfile.close();
+    }
+
+    // 设置曝光
+    int ret = setShutter(shutter_time_);
+    if(ret != 0) printf("[WARN] failed to set shutter");
+
+    // 设置白平衡
+    ret = setBalance(red_balance_, CAM_RED_BALANCE_CHANNEL);
+    if(ret != 0) printf("[WARN] failed to set red balance");
+    ret = setBalance(green_balance_, CAM_GREEN_BALANCE_CHANNEL);
+    if(ret != 0) printf("[WARN] failed to set green balance");
+    ret = setBalance(blue_balance_, CAM_BLUE_BALANCE_CHANNEL);
+    if(ret != 0) printf("[WARN] failed to set blue balance");
+
+    // 设置增益
+    ret = setGain(gain_value_);
+    if(ret != 0) printf("[WARN] failed to set gain");
+
+    return 0;
 }

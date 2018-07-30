@@ -1,11 +1,17 @@
-#include "detector.h"
+#include "Detector.h"
 
 Detector::Detector():
     bin_thresh_(40),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
+    start_detect_(false),
     save_result_switch_(true),
+    save_img_switch_(true),
+    show_time_switch_(true),
+    detection_thread_(2),
+    template_dir_("../images/templates/"),
+    img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
     id_(1)
@@ -17,24 +23,43 @@ Detector::Detector():
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
 }
 
-Detector::Detector(char* filename):
+Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     bin_thresh_(40),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
+    start_detect_(false),
+    save_result_switch_(true),
+    save_img_switch_(true),
+    show_time_switch_(true),
+    detection_thread_(2),
+    template_dir_("../images/templates/"),
+    img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
-    save_result_switch_(true),
     id_(1)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
+    string filename = "result.csv";
     result_log_.open(filename,ios::out);
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    mutex_ = mutex;
+    unsolved_list_ = list;
 }
 
 Detector::~Detector()
 {
+    //为停止采集做准备
+    start_detect_ = false;
+    int ret = pthread_join(detection_thread_,NULL);
+    if(ret != 0)
+    {
+        printf("<Failed to release resources>\n");
+    }
+	//释放buffer
+    delete unsolved_list_;
+
     result_log_.close();
 }
 
@@ -452,13 +477,13 @@ int Detector::checkPos() {
     // 25个矩阵求最小值
     image_min(mats,adjust_match);
     // imshow("adjust_match",adjust_match);
-    Scalar diff_sum = sum(adjust_match)/255;
+    Scalar diff_sum = sum(adjust_match);
     if(save_img_switch_){
         saveImg("pos",255-adjust_match);
     }
     if(save_result_switch_){
-        result_log_ << diff_sum[0] << ",";
-        if(diff_sum[0] < pos_thresh_){
+        result_log_ << diff_sum[0]/255 << ",";
+        if(diff_sum[0]/255 < pos_thresh_){
             result_log_ << ",";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
@@ -472,7 +497,7 @@ int Detector::checkPos() {
             }
         }
     }
-    return diff_sum[0];
+    return diff_sum[0]/255;
 }
 
 //-------------------------------------------------
@@ -570,8 +595,8 @@ int Detector::checkScratch() {
     diff = search(diff,template_label_bin);
     bitwise_or(diff,diff_white,diff);
     // absdiff(template_label_,label_,diff);
-    Scalar diff_sum = sum(diff)/255;
-    std::cout << "diff score"<<diff_sum[0] << '\n';
+    Scalar diff_sum = sum(diff);
+    std::cout << "diff score"<<diff_sum[0]/255 << '\n';
     // namedWindow("diff",CV_WINDOW_NORMAL);
     // imshow("diff",diff);
 
@@ -580,8 +605,8 @@ int Detector::checkScratch() {
        saveImg("scratch", diff); 
     }
     if(save_result_switch_){
-        result_log_ << diff_sum[0];
-        if(diff_sum[0] < scratch_thresh_){
+        result_log_ << diff_sum[0]/255;
+        if(diff_sum[0]/255 < scratch_thresh_){
             result_log_ << '\n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
@@ -597,7 +622,7 @@ int Detector::checkScratch() {
             // return 1;
         }
     }
-    return diff_sum[0];
+    return diff_sum[0]/255;
 }
 
 //-------------------------------------------------
@@ -631,16 +656,16 @@ int Detector::checkBigProblem(){
     // namedWindow("wlcommon",CV_WINDOW_NORMAL);
     // imshow("wlcommon",common);
     bitwise_xor(P,common,res);
-    Scalar diff_sum = sum(res)/255;
-    std::cout << "bp score"<<diff_sum[0] << '\n';
+    Scalar diff_sum = sum(res);
+    std::cout << "bp score"<<diff_sum[0]/255 << '\n';
     
     if(save_img_switch_){
         saveImg("bp", res);
     }
     // log
     if(save_result_switch_){
-        result_log_ << "," << diff_sum[0];
-        if(diff_sum[0] < bigpro_thresh_){
+        result_log_ << "," << diff_sum[0]/255;
+        if(diff_sum[0]/255 < bigpro_thresh_){
             result_log_ << ",";
             if(show_time_switch_){
                 auto t_bp_end = chrono::system_clock::now();
@@ -656,7 +681,21 @@ int Detector::checkBigProblem(){
             // return 1;
         }
     }
-    return diff_sum[0];
+    return diff_sum[0]/255;
+}
+
+//-------------------------------------------------
+/**
+\brief 设置原图
+\param [in] filename 地址
+\return void 
+*/ 
+//-------------------------------------------------
+void Detector::setOriginImg(string filename){
+    string file = template_dir_ + filename;
+    template_img_ = cv::imread(file,0);
+    template_label_ = getLabelImg(template_img_);
+    id_ = 0;
 }
 
 //-------------------------------------------------
@@ -670,6 +709,31 @@ void Detector::setOriginImg(cv::Mat img){
     template_img_ = img;
     template_label_ = getLabelImg(template_img_);
     id_ = 0;
+}
+
+//-------------------------------------------------
+/**
+\brief 设置待测图像
+\param [in] filename 文件地址
+\return void 
+*/ 
+//-------------------------------------------------
+void Detector::setImg(string filename){
+    
+    string file = img_dir_ + filename;
+    Mat img = cv::imread(file,0);
+    
+    img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
+    findLabel(img, img_gray_, img_points_);
+    
+    //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
+    label_ = getLabelImg(img_gray_);
+    adjustSize(label_, template_label_);
+    
+    id_++;
+    // imshow("label_",label_);
+    // waitKey();
+    // getROI(img_gray_, label_);
 }
 
 //-------------------------------------------------
@@ -692,6 +756,14 @@ void Detector::setImg(cv::Mat img){
     // getROI(img_gray_, label_);
 }
 
+//-------------------------------------------------
+/**
+\brief 保存图片
+\param [in] pre 前缀
+\param [in] img 图片
+\return void 
+*/ 
+//-------------------------------------------------
 void Detector::saveImg(string pre, cv::Mat img){
     string Output_Path = "../Output/images/";
     string suffix = ".jpg";
@@ -699,8 +771,17 @@ void Detector::saveImg(string pre, cv::Mat img){
     imwrite(Output_name, img);
 }
 
-int Detector::setParam(){
+int Detector::launchThread(){
+    int ret = pthread_create(&detection_thread_, NULL, detector_pth, this);
+    if(ret != 0)
+    {
+        printf("<Failed to create the detection thread>\n");
+        return -1;
+    }
+    return 0;
+}
 
+int Detector::setParam(){
 	std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
     if(!paramfile){
@@ -719,6 +800,8 @@ int Detector::setParam(){
             save_img_switch_ = root["detection"]["switch"]["save img"].empty()           ? save_img_switch_    : root["detection"]["switch"]["save img"].asBool();
             save_result_switch_ = root["detection"]["switch"]["save result log"].empty() ? save_result_switch_ : root["detection"]["switch"]["save result log"].asBool();
             show_time_switch_ = root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
+            template_dir_ = root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
+            img_dir_ = root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }
@@ -730,16 +813,16 @@ int Detector::setParam(){
 void Detector::setThresh(){
 
     Mat temp = template_img_ > bin_thresh_;
-    Scalar temp_sum = sum(temp)/255;
-    cout<<"temp sum: "<<temp_sum[0]<<endl;
+    Scalar temp_sum = sum(temp);
+    cout<<"temp sum: "<<temp_sum[0]/255<<endl;
 
     Mat temp_label = template_label_ > bin_thresh_;
-    Scalar label_sum = sum(temp_label)/255;
-    cout<<"temp label sum: "<<label_sum[0]<<endl;
+    Scalar label_sum = sum(temp_label);
+    cout<<"temp label sum: "<<label_sum[0]/255<<endl;
 
-    pos_thresh_ = temp_sum[0] * k_pos_;
-    scratch_thresh_ = label_sum[0] * k_scratch_;
-    bigpro_thresh_ = label_sum[0] * k_bigpro_;
+    pos_thresh_ = temp_sum[0]/255 * k_pos_;
+    scratch_thresh_ = label_sum[0]/255 * k_scratch_;
+    bigpro_thresh_ = label_sum[0]/255 * k_bigpro_;
     size_thresh_ = 3600;
     
     d_width_ = 400;
@@ -751,4 +834,34 @@ int Detector::detect(){
     int pos_res = checkPos();
     int bigpro_res = checkBigProblem();
     int scratch_res = checkScratch();
+}
+
+void Detector::ProcDetect(){
+    start_detect_ = true;
+    while(start_detect_){
+        pthread_mutex_lock(mutex_);
+        if(unsolved_list_->empty()){
+           pthread_mutex_unlock(mutex_);
+           continue; 
+        }
+        string unsolved_filename = unsolved_list_->front();
+        pthread_mutex_unlock(mutex_);
+        cout<<"unsolved filename:"<<unsolved_filename<<endl;
+        setImg(unsolved_filename);
+        detect();
+
+        pthread_mutex_lock(mutex_);
+        unsolved_list_->pop();
+        pthread_mutex_unlock(mutex_);
+    }
+    
+}
+
+void* Detector::detector_pth(void* args){
+    Detector *_this = (Detector *)args;
+    _this->ProcDetect();
+}
+
+int64_t Detector::getCount(){
+    return id_;
 }

@@ -1,22 +1,43 @@
 {
+    // 相机参数
     "camera":{
+        // 曝光时间，默认10000.0000
         "shutter time":10000.0000,
+        // 红色白平衡值，默认1.6523
         "Red Balance ratio":1.6523,
+        // 绿色白平衡值，默认1.0000
         "Green Balance ratio":1.0000,
+        // 蓝色白平衡值，默认1.9414
         "Blue Balance ratio":1.9414,
-        "Gain":20.00
+        // 增益，默认20.00
+        "Gain":20.00,
+        // 相机编号，默认1
+        "id": 1
     },
+    // 辨识参数
     "detection":{
+        // 阈值相关参数
         "thresh":{
             "bin thresh": 40,
             "k_pos": 0.01,
             "k_scratch": 0.001,
             "k_bigpro": 0.001
         },
+        // 功能开关
         "switch":{
+            // 保存结果图像
             "save img": false,
+            // 保存结果到文件
             "save result log": true,
+            // 显示所用时间
             "show time": true
+        },
+        // 文件路径
+        "file":{
+            // 原图路径
+            "template directory": "../images/templates/",
+            // 拍摄图像保存路径
+            "image directory": "../images/test/"
         }
     }
 }

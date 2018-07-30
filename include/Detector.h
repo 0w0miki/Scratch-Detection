@@ -6,6 +6,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
+#include <queue>
 #include "json/json.h"
 
 class Detector
@@ -19,10 +20,17 @@ private:
     cv::Mat label_;
     std::vector<Point2f> img_points_;
     
+    // 线程
+    pthread_mutex_t* mutex_;
+    pthread_t detection_thread_; 
+    std::queue<string>* unsolved_list_;
+
     // 参数
     float k_pos_;
     float k_scratch_;
     float k_bigpro_;
+    string template_dir_;
+    string img_dir_;
 
     // id
     int64_t id_;
@@ -46,6 +54,7 @@ private:
     bool save_result_switch_;
     bool show_time_switch_;
     bool log_switch_;
+    bool start_detect_;
 
 protected:
     void findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
@@ -59,6 +68,8 @@ protected:
     int checkPos();
     int checkScratch();
     int checkBigProblem();
+    void ProcDetect();
+    static void* detector_pth(void* args);
     // void crossIntegral(cv::Mat M1, cv::Mat M2, cv::Mat& crosssum);
     // cv::Mat getMerge(Mat src,int m,int n,int width,int height,int style);
     // cv::Mat getSum(Mat src,int m,int n,int width,int height);
@@ -66,13 +77,17 @@ protected:
 
 public:
     Detector();
-    Detector(char* filename);
+    Detector(pthread_mutex_t* mutex, std::queue<string>* list);
     ~Detector();
     int setParam();
     int detect();
+    int launchThread();
+    void setOriginImg(string filename);
     void setOriginImg(Mat img);
+    void setImg(string filename);
     void setImg(Mat img);
     void setThresh();
+    int64_t getCount();
 };
 
 

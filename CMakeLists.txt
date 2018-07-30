@@ -46,6 +46,7 @@ add_executable(CameraDemo
     src/camera_demo.cpp
     src/CameraUtils.cpp
     src/Camera.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(CameraDemo
     ${CAMERALIBS}
@@ -54,10 +55,24 @@ target_link_libraries(CameraDemo
 # demo for detector
 add_executable(DetectDemo 
     src/detect_demo.cpp
-    src/detector.cpp
+    src/Detector.cpp
     src/DetectUtils.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(DetectDemo
+    Threads::Threads
+    ${OpenCV_LIBS}
+)
+
+add_executable(Demo 
+    src/demo.cpp
+    src/CameraUtils.cpp
+    src/Camera.cpp
+    src/Detector.cpp
+    src/DetectUtils.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(Demo
+    ${CAMERALIBS}
     ${OpenCV_LIBS}
 )

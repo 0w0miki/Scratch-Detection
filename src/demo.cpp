@@ -8,20 +8,30 @@ int main(int argc, char const *argv[])
 
     std::queue<string> unsolved_list;
 
-    // Camera camera(&mutex, &unsolved_list);
+    Camera camera(&mutex, &unsolved_list);
     Detector detector(&mutex, &unsolved_list);
 
-    // camera.init();
-    // camera.setTrigger();
-    // camera.applyParam();
+    camera.init();
+    camera.setTrigger();
+    camera.applyParam();
 
     detector.setOriginImg("template.JPG");
+    // 300 350 2150 1500
+    std::vector<ROI> rois;
+    struct ROI a = {
+        .x=300,
+        .y=350,
+        .w=2150,
+        .h=1500
+    };
+    rois.push_back(a);
+    camera.setROI(rois);
 
     //发送开采命令
-    // int ret = camera.start();
-    // if(ret != 0) printf("[WARN] failed to start camera");
+    int ret = camera.start();
+    if(ret != 0) printf("[WARN] failed to start camera");
 
-    int ret = detector.launchThread();
+    ret = detector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
     printf("====================Menu================\n");
@@ -44,7 +54,7 @@ int main(int argc, char const *argv[])
             //发送一次软触发命令
             case 'S':
             case 's':
-                // ret = camera.sendSoftTrigger();
+                ret = camera.sendSoftTrigger();
                 printf("<The return value of softtrigger command: %d>\n", ret);
                 break;
 
@@ -53,9 +63,10 @@ int main(int argc, char const *argv[])
         }	
     }
 
-    // end
-    // ret = camera.stop();
+    // end process
+    ret = camera.stop();
     if(ret != 0) printf("[WARN] failed to stop camera");
 
+    cv::destroyAllWindows();
     return 0;
 }

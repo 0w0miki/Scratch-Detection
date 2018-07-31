@@ -217,7 +217,7 @@ void Camera::ProcGetImage(){
                         g_frame_data_.nHeight,
                         g_pixel_format_,
                         g_color_filter_); 
-
+                
                 if(ROIs_.size()>0){
                     SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight,ROIs_);
                 }else{

@@ -20,6 +20,9 @@ Detector::Detector():
     img_points_ = points;
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
+    if(!result_log_){
+        cout<< "[WARN]failed to open log file"<<endl;
+    }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
 }
 
@@ -43,23 +46,18 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     img_points_ = points;
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
+    if(!result_log_){
+        cout<< "[WARN]failed to open log file"<<endl;
+    }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    
     mutex_ = mutex;
     unsolved_list_ = list;
 }
 
 Detector::~Detector()
 {
-    //为停止采集做准备
     start_detect_ = false;
-    int ret = pthread_join(detection_thread_,NULL);
-    if(ret != 0)
-    {
-        printf("<Failed to release resources>\n");
-    }
-	//释放buffer
-    delete unsolved_list_;
-
     result_log_.close();
 }
 
@@ -487,13 +485,13 @@ int Detector::checkPos() {
             result_log_ << ",";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
-                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_bef-t_checkPos_end).count() << "ms\n";
+                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
             }
         }else{
             result_log_<<"position fault,";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
-                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_bef-t_checkPos_end).count() << "ms\n";
+                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
             }
         }
     }
@@ -528,7 +526,7 @@ int Detector::checkSize() {
     if( abs(width2 - d_width_ * d_width_) > size_thresh_ && abs(height2 - d_height_ * d_height_) > size_thresh_ ){
         std::cout << "size fault" << '\n';
         if(save_result_switch_){
-            result_log_ << "size fault";
+            result_log_ << "size fault,";
         }
         if(show_time_switch_){
             auto t_size_end = chrono::system_clock::now();
@@ -537,7 +535,7 @@ int Detector::checkSize() {
         return 1;
     }else{
         if(save_result_switch_){
-            result_log_ << "size ok";
+            result_log_ << "size ok,";
         }
         if(show_time_switch_){
             auto t_size_end = chrono::system_clock::now();
@@ -664,7 +662,7 @@ int Detector::checkBigProblem(){
     }
     // log
     if(save_result_switch_){
-        result_log_ << "," << diff_sum[0]/255;
+        result_log_ << diff_sum[0]/255;
         if(diff_sum[0]/255 < bigpro_thresh_){
             result_log_ << ",";
             if(show_time_switch_){
@@ -721,11 +719,14 @@ void Detector::setOriginImg(cv::Mat img){
 void Detector::setImg(string filename){
     
     string file = img_dir_ + filename;
-    Mat img = cv::imread(file,0);
-    
+    Mat src = cv::imread(file,0);
+    Mat img;
+    transpose(src, img);
+    flip(img,img,0);
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
     findLabel(img, img_gray_, img_points_);
-    
+    // imshow("img",img);
+    // waitKey(1);
     //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     label_ = getLabelImg(img_gray_);
     adjustSize(label_, template_label_);

@@ -18,7 +18,7 @@
     "detection":{
         // 阈值相关参数
         "thresh":{
-            "bin thresh": 40,
+            "bin thresh": 10,
             "k_pos": 0.01,
             "k_scratch": 0.001,
             "k_bigpro": 0.001

@@ -9,6 +9,10 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 
+.png
+.jpg
+.JPG
+
 build
 lib
 Monocolor

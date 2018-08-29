@@ -14,6 +14,7 @@ Detector::Detector():
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    count_(1),
     id_(1)
 {
     std::vector<cv::Point2f> points(4);
@@ -40,6 +41,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    count_(1),
     id_(1)
 {
     std::vector<cv::Point2f> points(4);
@@ -53,6 +55,87 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     
     mutex_ = mutex;
     unsolved_list_ = list;
+}
+
+Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list):
+    bin_thresh_(40),
+    k_pos_(0.01),
+    k_scratch_(0.001),
+    k_bigpro_(0.001),
+    start_detect_(false),
+    save_result_switch_(true),
+    save_img_switch_(true),
+    show_time_switch_(true),
+    detection_thread_(2),
+    template_dir_("../images/templates/"),
+    img_dir_("../images/test/"),
+    d_width_(400),
+    d_height_(600),
+    count_(1),
+    id_(1)
+{
+    std::vector<cv::Point2f> points(4);
+    img_points_ = points;
+    string filename = "result.csv";
+    result_log_.open(filename,ios::out);
+    if(!result_log_){
+        cout<< "[WARN]failed to open log file"<<endl;
+    }
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    
+    mutex_ = mutex;
+    unsolved_list_ = list;
+
+    batch_origin_list_ = batch_origin_list;
+    batch_count_list_ = batch_count_list;
+    desired_size_list_ = desired_size_list;
+    batch_origin_iter_ = batch_origin_list_->begin();
+    batch_count_iter_ = batch_count_list_->begin();
+    desired_size_iter_ = desired_size_list_->begin();
+
+    input_type_ = 1;
+}
+
+Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<std::string>* work_id_list, std::vector<int64_t>* work_count_list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list):
+    bin_thresh_(40),
+    k_pos_(0.01),
+    k_scratch_(0.001),
+    k_bigpro_(0.001),
+    start_detect_(false),
+    save_result_switch_(true),
+    save_img_switch_(true),
+    show_time_switch_(true),
+    detection_thread_(2),
+    template_dir_("../images/templates/"),
+    img_dir_("../images/test/"),
+    d_width_(400),
+    d_height_(600),
+    count_(1),
+    id_(1)
+{
+    std::vector<cv::Point2f> points(4);
+    img_points_ = points;
+    string filename = "result.csv";
+    result_log_.open(filename,ios::out);
+    if(!result_log_){
+        cout<< "[WARN]failed to open log file"<<endl;
+    }
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    
+    mutex_ = mutex;
+    unsolved_list_ = list;
+
+    work_id_list_ = work_id_list;
+    work_count_list_ = work_count_list;
+    batch_origin_list_ = batch_origin_list;
+    batch_count_list_ = batch_count_list;
+    
+    work_id_iter_ = work_id_list_->begin();
+    work_count_iter_ = work_count_list_->begin();
+    batch_origin_iter_ = batch_origin_list_->begin();
+    batch_count_iter_ = batch_count_list_->begin();
+    
+    input_type_ = 1;
 }
 
 Detector::~Detector()
@@ -74,15 +157,14 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     cv::Mat image_bin;
     cv::Mat image_bin2;
     // 二值化
-    cv::equalizeHist(image_gray,image_gray);
+    // cv::equalizeHist(image_gray,image_gray);
     // adaptiveThreshold(image_gray, image_bin, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY, 27, 5);
-
     image_bin = image_gray > bin_thresh_;
     Erosion(image_bin, image_bin,0,12);
     Dilation(image_bin, image_bin,0,12);
-    // namedWindow("gray",CV_WINDOW_NORMAL);
-    // imshow("gray", image_bin);
-    // waitKey(0);
+    namedWindow("gray",CV_WINDOW_NORMAL);
+    imshow("gray", image_gray);
+    waitKey(0);
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(image_bin, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
@@ -95,8 +177,9 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
         // for opencv 3
         cv::drawContours(image_bin, contours, index, color,  CV_FILLED, 8, hierarchy);
     }
-    // imshow("origin", image_bin);
-    // waitKey(0);
+    namedWindow("origin",CV_WINDOW_NORMAL);
+    imshow("origin", image_bin);
+    waitKey(0);
     // 找四条直线
     int i,j;
     std::vector<std::vector<cv::Point2f> > linePoints(4);
@@ -105,11 +188,11 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
 
     for(i=0;i<4;i++){
         cv::Vec4f line;
-        findLinePoint(lines[i],image_bin,i,200,1);
+        findLinePoint(lines[i],image_bin,i,2000,5);
         // std::cout << lines[0]<<"," <<lines[1]<<"," <<lines[2]<<"," <<lines[3]<< std::endl;
         // 拟合直线
         cv::fitLine(lines[i], line, CV_DIST_HUBER, 0, 0.01, 0.01);
-        // std::cout << line[0]<<"," <<line[1]<<"," <<line[2]<<"," <<line[3]<< std::endl;
+        std::cout << line[0]<<"," <<line[1]<<"," <<line[2]<<"," <<line[3]<< std::endl;
 
         cv::Point point0;
         point0.x = line[2];
@@ -131,9 +214,9 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
         // std::cout <<point1.x<<","<< point1.y<<"  ,  "<<point2.x<<","<<point2.y<< std::endl;
         cv::line(image_bin2, p1, p2, cv::Scalar(255), 10, 8, 0);
     }
-    
-    // imshow("with line", image_bin2);
-    // waitKey(0);
+    namedWindow("with line",CV_WINDOW_NORMAL);
+    imshow("with line", image_bin2);
+    waitKey(0);
     // 四个交点
     for(i=0;i<4;i++){
         CrossPoint(points[i],linePoints[i],linePoints[(i+1)%4]);
@@ -445,7 +528,7 @@ cv::Mat Detector::search(Mat img, Mat template_img){
 \param [in] template_img 模板图像
 \param [in] det_img 待测图像
 \param [in] adjust_match 结果图像
-\return int 
+\return int 0:ok 1:fault
 */ 
 //-------------------------------------------------
 int Detector::checkPos() {
@@ -487,15 +570,17 @@ int Detector::checkPos() {
                 auto t_checkPos_end = chrono::system_clock::now();
                 cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
             }
+            return 0;
         }else{
             result_log_<<"position fault,";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
                 cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
             }
+            return 1;
         }
     }
-    return diff_sum[0]/255;
+    // return diff_sum[0]/255;
 }
 
 //-------------------------------------------------
@@ -610,17 +695,17 @@ int Detector::checkScratch() {
                 auto t_scratch_end = chrono::system_clock::now();
                 cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
             }
-            // return 0;
+            return 0;
         }else{
             result_log_ << ",scratch fault" << '\n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
                 cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
             }
-            // return 1;
+            return 1;
         }
     }
-    return diff_sum[0]/255;
+    // return diff_sum[0]/255;
 }
 
 //-------------------------------------------------
@@ -669,14 +754,14 @@ int Detector::checkBigProblem(){
                 auto t_bp_end = chrono::system_clock::now();
                 cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
             }
-            // return 0;
+            return 0;
         }else{
             result_log_<<",bigpro fault"<<',';
             if(show_time_switch_){
                 auto t_bp_end = chrono::system_clock::now();
                 cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
             }
-            // return 1;
+            return 1;
         }
     }
     return diff_sum[0]/255;
@@ -692,8 +777,19 @@ int Detector::checkBigProblem(){
 void Detector::setOriginImg(string filename){
     string file = template_dir_ + filename;
     template_img_ = cv::imread(file,0);
-    template_label_ = getLabelImg(template_img_);
-    id_ = 0;
+    if(input_type_ == DETECTA4){
+        template_label_ = template_img_;
+    }else if(input_type_ == DETECTEACH){
+        template_label_ = getLabelImg(template_img_);
+    }
+    if(id_ > *work_count_iter_){
+        id_ = 1;
+        work_count_iter_++;
+        work_id_iter_++;
+    }
+    // cv::cvtColor(template_img_,template_label_,CV_BGR2GRAY);
+    
+    count_ = 1;
 }
 
 //-------------------------------------------------
@@ -705,8 +801,17 @@ void Detector::setOriginImg(string filename){
 //-------------------------------------------------
 void Detector::setOriginImg(cv::Mat img){
     template_img_ = img;
-    template_label_ = getLabelImg(template_img_);
-    id_ = 0;
+    if(input_type_ == DETECTA4){
+        template_label_ = template_img_;
+    }else if(input_type_ == DETECTEACH){
+        template_label_ = getLabelImg(template_img_);
+    }
+    if(id_ > *work_count_iter_){
+        id_ = 1;
+        work_count_iter_++;
+        work_id_iter_++;
+    }
+    count_ = 1;
 }
 
 //-------------------------------------------------
@@ -724,14 +829,36 @@ void Detector::setImg(string filename){
     transpose(src, img);
     flip(img,img,0);
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    findLabel(img, img_gray_, img_points_);
-    // imshow("img",img);
-    // waitKey(1);
-    //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
-    label_ = getLabelImg(img_gray_);
+    findLabel(img, img_gray_, img_points_); 
+    label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
+    // label_ = getLabelImg(img_gray_);
+    imshow("img",img_gray_);
+    waitKey();
     adjustSize(label_, template_label_);
-    
     id_++;
+    count_++;
+    if(count_ > *batch_count_iter_){
+        batch_count_iter_++;
+        batch_origin_iter_++;
+        
+        if(batch_origin_iter_ != batch_origin_list_->end()){
+            setOriginImg(*batch_origin_iter_);
+        }else{
+            printf("[WARN] origin image list end.");
+        }
+        if(input_type_ == DETECTEACH){
+            desired_size_iter_++;
+            cout<<(*desired_size_iter_).x<<endl;
+            if(desired_size_iter_ != desired_size_list_->end()){
+                setDesiredSize(*desired_size_iter_);
+                cout<<"test"<<endl;
+            }else{
+                printf("[WARN] desired size list end.");
+            }
+        }
+        
+    }
+    
     // imshow("label_",label_);
     // waitKey();
     // getROI(img_gray_, label_);
@@ -752,6 +879,29 @@ void Detector::setImg(cv::Mat img){
     label_ = getLabelImg(img_gray_);
     adjustSize(label_, template_label_);
     id_++;
+    count_++;
+    if(count_ > *batch_count_iter_){
+        batch_count_iter_++;
+        batch_origin_iter_++;
+        if(batch_origin_iter_ != batch_origin_list_->end()){
+            setOriginImg(*batch_origin_iter_);
+        }else{
+            printf("[WARN] origin image list end.");
+        }
+
+        if(id_ > *work_count_iter_){
+            id_ = 1;
+            work_count_iter_++;
+            work_id_iter_++;
+        }
+        if(input_type_ == DETECTEACH){
+            if(desired_size_iter_ != desired_size_list_->end()){
+                setDesiredSize(*desired_size_iter_);
+            }else{
+                printf("[WARN] desired size list end.");
+            }
+        }
+    }
     // imshow("label_",label_);
     // waitKey();
     // getROI(img_gray_, label_);
@@ -803,11 +953,13 @@ int Detector::setParam(){
             show_time_switch_ = root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
             template_dir_ = root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
             img_dir_ = root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
+            input_type_ = root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }
         paramfile.close();
     }
+    setThresh();
     return 0;
 }
 
@@ -826,15 +978,33 @@ void Detector::setThresh(){
     bigpro_thresh_ = label_sum[0]/255 * k_bigpro_;
     size_thresh_ = 3600;
     
-    d_width_ = 400;
-    d_height_ = 600;
+    d_width_ = 1900;
+    d_height_ = 1300;
 }
 
 int Detector::detect(){
-    int size = checkSize();
+    int size_res = checkSize();
     int pos_res = checkPos();
     int bigpro_res = checkBigProblem();
     int scratch_res = checkScratch();
+    
+    int8_t result = 0;
+    if(pos_res == 1){
+        // 模切偏移
+        result = result | 1;
+    }
+    if(bigpro_res && scratch_res){
+        // 墨迹
+        result = result | 2;
+    }
+    if(scratch_res){
+        // 划痕，折痕
+        result = result | 4;
+    }
+    // 保存json文件
+    if(result != 0){
+        writeResJson(result);
+    }    
 }
 
 void Detector::ProcDetect(){
@@ -842,8 +1012,9 @@ void Detector::ProcDetect(){
     while(start_detect_){
         pthread_mutex_lock(mutex_);
         if(unsolved_list_->empty()){
-           pthread_mutex_unlock(mutex_);
-           continue; 
+            // 没有待处理文件
+            pthread_mutex_unlock(mutex_);
+            continue; 
         }
         string unsolved_filename = unsolved_list_->front();
         pthread_mutex_unlock(mutex_);
@@ -854,6 +1025,9 @@ void Detector::ProcDetect(){
         pthread_mutex_lock(mutex_);
         unsolved_list_->pop();
         pthread_mutex_unlock(mutex_);
+
+        // 发送消息
+
     }
     
 }
@@ -864,5 +1038,34 @@ void* Detector::detector_pth(void* args){
 }
 
 int64_t Detector::getCount(){
-    return id_;
+    return count_;
+}
+
+void Detector::setDesiredSize(cv::Point2i desired_size){
+    d_width_ = desired_size.x;
+    d_height_ = desired_size.y;
+}
+
+void Detector::writeResJson(int8_t result){
+    printf("<-------------------Write json file------------------------>");
+    Json::Value root;
+    Json::Value batch_item;
+    Json::Value Id_item;
+    Json::StreamWriterBuilder wbuilder;
+    wbuilder["indentation"] = "";
+    std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
+
+    batch_item["work"] = *work_count_iter_;
+    Id_item["id"] = id_;
+    Id_item["state"] = "fault";
+    Id_item["fault type"] = result;    
+    batch_item["image state"].append(Id_item);
+    Id_item.clear();
+    root.append(batch_item);
+    batch_item.clear();
+    std::cout << "'" << Json::writeString(wbuilder, root) << "'" << std::endl;
+    // writer->write(root, &file);
+    // resFile.close();
+
+    // return 0;
 }

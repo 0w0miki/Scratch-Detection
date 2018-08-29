@@ -6,8 +6,6 @@
 #include "DxImageProc.h"
 #include <stdio.h>
 
-static int rgb_file_index = 1;
-
 //----------------------------------------------------------------------------------
 /**
 \brief  ROI结构体

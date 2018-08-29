@@ -21,6 +21,7 @@ file_dir_("../images/test/")
 
 Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list):
 cam_id_(1),
+count_(0),
 g_device_(NULL),
 g_frame_data_({0}),
 g_raw8_buffer_(NULL),
@@ -35,6 +36,52 @@ file_dir_("../images/test/")
 {
     mutex_ = mutex;
     unsolved_list_ = unsolved_list;
+}
+
+Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<int64_t>* work_count_list,std::vector<std::vector<ROI>>* batch_ROI_list):
+cam_id_(1),
+count_(0),
+g_device_(NULL),
+g_frame_data_({0}),
+g_raw8_buffer_(NULL),
+g_rgb_frame_data_(NULL),
+g_pixel_format_(GX_PIXEL_FORMAT_BAYER_GR8),
+g_color_filter_(GX_COLOR_FILTER_NONE),
+g_acquire_thread_(0),
+g_get_image_(false),
+g_frameinfo_data_(NULL),
+g_frameinfo_datasize_(0),
+file_dir_("../images/test/")
+{
+    mutex_ = mutex;
+    unsolved_list_ = unsolved_list;
+    work_count_list_ = work_count_list;
+    work_count_iter_ = work_count_list_->begin();
+    batch_ROI_list_ = batch_ROI_list;
+    batch_ROI_iter_ = batch_ROI_list->begin();
+}
+
+Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<std::string>* work_id_list, std::vector<int64_t>* work_count_list):
+cam_id_(1),
+count_(0),
+g_device_(NULL),
+g_frame_data_({0}),
+g_raw8_buffer_(NULL),
+g_rgb_frame_data_(NULL),
+g_pixel_format_(GX_PIXEL_FORMAT_BAYER_GR8),
+g_color_filter_(GX_COLOR_FILTER_NONE),
+g_acquire_thread_(0),
+g_get_image_(false),
+g_frameinfo_data_(NULL),
+g_frameinfo_datasize_(0),
+file_dir_("../images/test/")
+{
+    mutex_ = mutex;
+    unsolved_list_ = unsolved_list;
+    work_id_list_ = work_id_list;
+    work_id_iter_ = work_id_list_->begin();
+    work_count_list_ = work_count_list;
+    work_count_iter_ = work_count_list_->begin();
 }
 
 Camera::~Camera()
@@ -205,10 +252,9 @@ void Camera::ProcGetImage(){
                         printf("<Frame number: %d>\n", GetCurFrameIndex());
                     }
                 }
-
                 //保存Raw数据
-                //SaveRawFile(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
-
+                // SaveRawFile(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
+                
                 //将Raw数据处理成RGB数据
                 ProcessData(g_frame_data_.pImgBuf, 
                         g_raw8_buffer_, 
@@ -217,9 +263,11 @@ void Camera::ProcGetImage(){
                         g_frame_data_.nHeight,
                         g_pixel_format_,
                         g_color_filter_); 
-                
+                // cv::Mat image(g_frame_data_.nHeight, g_frame_data_.nWidth, CV_8UC3, (uchar*)g_rgb_frame_data_);
+                // cv::imshow("original image",image);
+                // cv::waitKey(1);
                 if(ROIs_.size()>0){
-                    SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight,ROIs_);
+                    SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight, ROIs_);
                 }else{
                     //保存RGB数据
                     SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
@@ -410,8 +458,7 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
     char filename[64];
     // static int rgb_file_index = 1;
     FILE* ff = NULL;
-
-    sprintf(name, "RGB%d.ppm", rgb_file_index++);
+    sprintf(name, "%s_%ld.ppm", work_id_iter_->c_str(), count_);
     sprintf(filename,"%s%s",file_dir_.data(),name);
     ff=fopen(filename,"wb");
     if(ff != NULL)
@@ -424,6 +471,15 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
         unsolved_list_->push(name);
         pthread_mutex_unlock(mutex_);
         printf("<Save %s success>\n", name);
+    }
+    count_++;
+    if(count_ >= *work_count_iter_){
+        if(work_count_iter_ != work_count_list_->end()){
+            work_count_iter_++;
+            work_id_iter_++;
+        }else{
+            printf("[WARN] work end!");
+        }
     }
 }
 
@@ -449,13 +505,13 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
     }
     void* ROI_buffer = image_buffer;
     for(size_t i = 0;i<ROIs.size();i++){
-        sprintf(name, "RGB%d.ppm", rgb_file_index++);
+        sprintf(name, "%s_%ld.ppm", work_id_iter_->c_str(), count_);
         sprintf(filename,"%s%s",file_dir_.data(),name);
-        printf("filename:%s",filename);
+        printf("filename:%s\n",filename);
         ff=fopen(filename,"wb");
         if(ff != NULL)
         {
-            fprintf(ff, "P6\n" "%zu %zu\n255\n", ROIs[i].w, ROIs[i].h);
+            fprintf(ff, "P6\n" "%d %d\n255\n", ROIs[i].w, ROIs[i].h);
             ROI_buffer = image_buffer + (ROIs[i].y * width + ROIs[i].x) * 3;
             printf("x,y %d\n",(ROIs[i].y * ROIs[i].w + ROIs[i].x) * 3);
             for(size_t j = 0; j < ROIs[i].h; j++){
@@ -467,7 +523,21 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
             pthread_mutex_lock(mutex_);
             unsolved_list_->push(name);
             pthread_mutex_unlock(mutex_);
-            printf("<Save %s success>\n", name);
+            printf("<Save with ROI %s success>\n", name);
+        }
+        count_++;
+        if(count_ >= *work_count_iter_){
+            if(work_id_iter_ != work_id_list_->end()){
+                work_count_iter_++;
+                work_id_iter_++;
+            }
+            if(batch_ROI_iter_ != batch_ROI_list_->end()){
+                batch_ROI_iter_++;
+                setROI(*batch_ROI_iter_);
+            }else{
+                printf("[WARN] the batch is end\n");
+            }
+            break;
         }
     }
 }
@@ -664,8 +734,16 @@ int Camera::setGain(double gain_value){
 //-------------------------------------------------
 void Camera::setROI(std::vector<ROI> rois){
     ROIs_ = rois;
+    count_ = 0;
 }
 
+//-------------------------------------------------
+/**
+\brief 设置参数
+\param [in] 
+\return void 
+*/
+//-------------------------------------------------
 int Camera::applyParam(){
     std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
@@ -708,4 +786,8 @@ int Camera::applyParam(){
     if(ret != 0) printf("[WARN] failed to set gain");
 
     return 0;
+}
+
+int64_t Camera::getCount(){
+    return count_;
 }

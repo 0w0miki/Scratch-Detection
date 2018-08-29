@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <string>
 #include <queue>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
 #include "CameraUtils.h"
 #include "json/json.h"
 
@@ -42,7 +44,13 @@ private:
     CTimeCounter g_time_counter_;                                ///< 计时器
 
     std::vector<ROI> ROIs_;                                      ///< ROI
-    std::queue<std::string>* unsolved_list_;                          ///< 未处理图像文件名列表
+    std::queue<std::string>* unsolved_list_;                     ///< 未处理图像文件名列表
+    std::vector<std::string>* work_id_list_;
+    std::vector<std::string>::iterator work_id_iter_;
+    std::vector<int64_t>* work_count_list_;
+    std::vector<int64_t>::iterator work_count_iter_;
+    std::vector<std::vector<ROI>>* batch_ROI_list_;
+    std::vector<std::vector<ROI>>::iterator batch_ROI_iter_;
 
     // param
     double shutter_time_;
@@ -52,6 +60,7 @@ private:
     double gain_value_;
 
     std::string file_dir_;
+    int64_t count_;
 
 protected:
 
@@ -76,6 +85,8 @@ protected:
 public:
     Camera();
     Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list);
+    Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<int64_t>* work_count_list, std::vector<std::vector<ROI>>* work_ROI_list);
+    Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<std::string>* work_id_list, std::vector<int64_t>* work_count_list);
     ~Camera();
     
     // 相机初始化
@@ -100,6 +111,8 @@ public:
     void setROI(std::vector<ROI> rois);
     // 读取并设置参数
     int applyParam();
+    // 读取相机拍摄计数
+    int64_t getCount();
 };
 
 

@@ -9,6 +9,9 @@
 #include <queue>
 #include "json/json.h"
 
+#define DETECTA4 0
+#define DETECTEACH 1
+
 class Detector
 {
 private:
@@ -33,8 +36,12 @@ private:
     string img_dir_;
 
     // id
+    int64_t count_;
     int64_t id_;
-    
+
+    // 类型 0-检测A4 1-检测单张
+    int8_t input_type_;
+
     // 期望尺寸
     float d_width_;
     float d_height_;
@@ -56,6 +63,19 @@ private:
     bool log_switch_;
     bool start_detect_;
 
+    // 批次信息
+    std::vector<std::string>* work_id_list_;
+    std::vector<std::string>::iterator work_id_iter_;
+    std::vector<int64_t>* work_count_list_;
+    std::vector<int64_t>::iterator work_count_iter_;
+    std::vector<string>* batch_origin_list_;
+    std::vector<string>::iterator batch_origin_iter_;
+    std::vector<int64_t>* batch_count_list_;
+    std::vector<int64_t>::iterator batch_count_iter_;
+    std::vector<cv::Point2i>* desired_size_list_;
+    std::vector<cv::Point2i>::iterator desired_size_iter_;
+
+
 protected:
     void findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
     cv::Mat getLabelImg(Mat img);
@@ -70,6 +90,7 @@ protected:
     int checkBigProblem();
     void ProcDetect();
     static void* detector_pth(void* args);
+    void writeResJson(int8_t result);
     // void crossIntegral(cv::Mat M1, cv::Mat M2, cv::Mat& crosssum);
     // cv::Mat getMerge(Mat src,int m,int n,int width,int height,int style);
     // cv::Mat getSum(Mat src,int m,int n,int width,int height);
@@ -78,15 +99,19 @@ protected:
 public:
     Detector();
     Detector(pthread_mutex_t* mutex, std::queue<string>* list);
+    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list);
+    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<std::string>* work_id_list_, std::vector<int64_t>* work_count_list_, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list);
     ~Detector();
     int setParam();
     int detect();
     int launchThread();
     void setOriginImg(string filename);
     void setOriginImg(Mat img);
+    void setDesiredSize(cv::Point2i desired_size);
     void setImg(string filename);
     void setImg(Mat img);
     void setThresh();
+    int sendMsg();
     int64_t getCount();
 };
 

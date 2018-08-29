@@ -8,8 +8,9 @@ add_compile_options(-std=c++11)
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3" )
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 3 REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 
 if(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
     message(FATAL_ERROR "cannot find genicam root directory")
@@ -19,6 +20,8 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/third_party/camera/include
     ${PROJECT_SOURCE_DIR}/third_party/jsoncpp
+    ${PROJECT_SOURCE_DIR}/third_party/mongoose
+    ${CURL_INCLUDE_DIR}
     # $ENV{GENICAM_ROOT_V2_3}/library/CPP/include
     # $ENV{GENICAM_ROOT_V2_3}/../../sdk/include
 )
@@ -39,40 +42,77 @@ set(CAMERALIBS
     liblog4cpp_gcc40_v2_3.so
     libLog_gcc40_v2_3.so
     libMathParser_gcc40_v2_3.so
+    ${OpenCV_LIBS}
+)
+
+add_library(Camera SHARED 
+    src/CameraUtils.cpp
+    src/Camera.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(Camera ${CAMERALIBS})
+
+add_library(Detection SHARED
+    src/Detector.cpp
+    src/DetectUtils.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
 )
 
 # demo for camera
 add_executable(CameraDemo 
     src/camera_demo.cpp
-    src/CameraUtils.cpp
-    src/Camera.cpp
-    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(CameraDemo
     ${CAMERALIBS}
+    Camera
 )
 
 # demo for detector
 add_executable(DetectDemo 
     src/detect_demo.cpp
-    src/Detector.cpp
-    src/DetectUtils.cpp
-    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(DetectDemo
     Threads::Threads
     ${OpenCV_LIBS}
+    Detection
 )
 
 add_executable(Demo 
     src/demo.cpp
-    src/CameraUtils.cpp
-    src/Camera.cpp
-    src/Detector.cpp
-    src/DetectUtils.cpp
-    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(Demo
     ${CAMERALIBS}
     ${OpenCV_LIBS}
+    Camera
+    Detection
+)
+
+add_executable(FileReadDemo
+    src/file_demo.cpp
+    src/Camera.cpp
+    src/CameraUtils.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(FileReadDemo
+    ${CAMERALIBS}
+)
+
+add_executable(url_demo
+    src/curl_demo.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(url_demo
+    ${CURL_LIBRARY}
+)
+
+AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpserver httpserver)
+add_executable(server_demo
+    ${httpserver}
+    third_party/mongoose/mongoose.c
+)
+
+AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpclient httpclient)
+add_executable(client_demo
+    ${httpclient}
+    third_party/mongoose/mongoose.c
 )

@@ -109,6 +109,7 @@ AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpserver httpserver)
 add_executable(server_demo
     ${httpserver}
     third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
 )
 
 AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpclient httpclient)

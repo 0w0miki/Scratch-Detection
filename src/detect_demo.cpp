@@ -19,9 +19,12 @@ int main ( int argc, char** argv )
     string suffix = ".bmp";
     string Input_Path = dir;
     templ = cv::imread("../images/templates/template.JPG",0);
+    
+    // cv::imshow("test",templ);
+    // cv::waitKey();
 
     detector.setOriginImg(templ);
-    
+    cout<<"test"<<endl;
     for (size_t filei = 1; filei < 2; filei++) {
         Input_Path += to_string(filei);
         // Input_Path += to_string(list[filei]);

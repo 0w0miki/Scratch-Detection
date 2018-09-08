@@ -1,7 +1,8 @@
 #include "Camera.h"
 #include "Detector.h"
+#include "client.h"
 
-int readBatchFile(std::string filename, std::vector<std::vector<ROI>> &batch_ROI_list, std::vector<std::string> &batch_origin_list, std::vector<int64_t> &batch_count_list, std::vector<cv::Point2i> &desired_size_list){
+int readBatchFile(std::string filename, std::vector<std::vector<ROI>> &batch_ROI_list, std::deque<std::string> &batch_origin_list, std::deque<int64_t> &batch_count_list, std::vector<cv::Point2i> &desired_size_list){
     std::ifstream batch_file;
     std::string file_dir = "../";
     std::string file = file_dir + filename;
@@ -86,85 +87,92 @@ int readBatchFile(std::string filename, std::vector<std::vector<ROI>> &batch_ROI
     return 0;
 }
 
-int readBatchFile(std::string filename, std::vector<std::string> &work_id_list, std::vector<int64_t> &work_count_list, std::vector<std::string> &batch_origin_list, std::vector<int64_t> &batch_count_list){
-    std::ifstream batch_file;
-    std::string file_dir = "../";
-    std::string file = file_dir + filename;
-    batch_file.open(file , std::ios::in);
+void* post_result(void *arg){
+    
+    thread_param* param_ptr;
+    param_ptr = (struct thread_param *) arg;
+    Json::Value* result_root = param_ptr->root;
+    pthread_mutex_t* result_mutex = param_ptr->mutex;
+    int nCode = -1;
+    std::string sIP = "127.0.0.1";
+    unsigned int nPort = 7999;
+    std::string sUser = "";   //可为空
+    std::string sPwd = "";	  //可为空	
 
-    if(!batch_file){
-        printf("[ERROR] failed to open batch file\n");
-        return -1;
-    }else{
-        Json::CharReaderBuilder builder;
-	    Json::Value root;
-        builder["collectComments"] = false;
-        JSONCPP_STRING errs;
-        if (parseFromStream(builder, batch_file, &root, &errs)){
-            int work_size = root["work"].size();
-            if(work_size > 0){
-                for(int i = 0; i < work_size; i++){
-                    std::string work_id = root["work"][i]["id"].asString();
-                    int64_t work_count = root["work"][i]["total"].asInt64();
-                    work_id_list.push_back(work_id);
-                    work_count_list.push_back(work_count);
-                    int batch_size = root["work"][i]["batch"].size();
-                    printf("batch size %d\n", batch_size);
-                    if(batch_size > 0){
-                        Json::Value batch = root["work"][i]["batch"];
-                        for(int j = 0; j < batch_size; j++){
-                            std::string img_url = batch[j]["img url"].asString();
-                            batch_origin_list.push_back(img_url);
-                            std::cout << "set origin image url " << img_url << std::endl;
-                            int64_t batch_count = batch[j]["total"].asInt64();
-                            batch_count_list.push_back(batch_count);
-                            std::cout << "set detection batch "<< batch_count << std::endl;
-                        }
-                    }else{
-                        printf("[ERROR] no batch array");
-                        batch_file.close();
-                        return -3;
-                    }
-                }
-            }else{
-                printf("[ERROR] no work array");
-                batch_file.close();
-                return -2;
-            }
-        }else{
-            cout << "[ERROR] Jsoncpp error: " << errs << endl;
-        }
-        batch_file.close();
+    //这边用智能指针更好
+    CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd, result_mutex, result_root);
+    if(NULL == pCurlClient)
+    {
+        //创建Curl对象失败
+        printf("new object failure!!!!!\n");
     }
-    return 0;
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+    }
+    
+    //设置路径
+    std::string sUrlPath = "/api/result";
+    pCurlClient->setUrlPath(sUrlPath);
+    
+    std::string res="";
+    bool run_flag = true;
+    while(run_flag){
+        if(!result_root->empty()){
+            pCurlClient->sendResult(res);
+            printf("%s\n", res.c_str());
+        }
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 10 * 1000;
+        select(0,NULL,NULL,NULL,&tv);
+    }
 }
 
 int main(int argc, char const *argv[])
 {
-    pthread_mutex_t mutex;
-    pthread_mutex_init(&mutex, NULL);
+    pthread_t post_thread_id = 3;
+    pthread_mutex_t slv_list_mutex;
+    pthread_mutex_init(&slv_list_mutex, NULL);
+    pthread_mutex_t result_mutex;
+    pthread_mutex_init(&result_mutex, NULL);
 
     std::queue<string> unsolved_list;
     // 批次信息
-    std::vector<std::string> work_id_list;
-    std::vector<int64_t> work_count_list;
-    std::vector<string> batch_origin_list;
-    std::vector<int64_t> batch_count_list;
+    std::deque<std::string> work_name_list;
+    std::deque<int64_t> work_count_list;
+    std::deque<string> batch_origin_list;
+    std::deque<int64_t> batch_count_list;
     // std::vector<cv::Point2i> desired_size_list;
 
+    Json::Value* result_root = new Json::Value();
+    CurlClient::globalInit();
+
+    thread_param post_thread_param;
+    post_thread_param.root = result_root;
+    post_thread_param.mutex = &result_mutex;
+    // 错误回报线程
+    pthread_create(&post_thread_id, NULL, post_result, (void*)&post_thread_param);
+
     // 读取批次信息
-    int ret = readBatchFile("batch_info.json", work_id_list, work_count_list, batch_origin_list, batch_count_list);
-    if(ret == -1){
+    int ret = readBatchFile("batch_info.json", work_name_list, work_count_list, batch_origin_list, batch_count_list);
+    if(ret != 0){
         ;
     }
-    Camera camera(&mutex, &unsolved_list, &work_id_list, &work_count_list);
-    Detector detector(&mutex, &unsolved_list, &work_id_list, &work_count_list, &batch_origin_list, &batch_count_list);
+    Camera camera(&slv_list_mutex, &unsolved_list, &work_name_list, &work_count_list);
+    Detector detector(&slv_list_mutex, &result_mutex, result_root, &unsolved_list, &work_name_list, &work_count_list, &batch_origin_list, &batch_count_list);
 
     camera.init();
     camera.setTrigger();
     camera.applyParam();
 
     detector.setParam();
+
     // 收到开车指令
 
 
@@ -186,9 +194,6 @@ int main(int argc, char const *argv[])
     bool run = true;
     while(run == true)
     {
-        int64_t detect_count = detector.getCount();
-        int64_t catch_count = camera.getCount();
-        
         int c = getchar();
         switch(c)
         {
@@ -197,7 +202,10 @@ int main(int argc, char const *argv[])
             case 'x':
                 run = false;
                 break;
-
+            case 'c':
+            case 'C':
+                unsolved_list.push("print_1_0.ppm");
+                break;
             //发送一次软触发命令
             case 'S':
             case 's':

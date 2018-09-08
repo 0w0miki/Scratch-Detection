@@ -1,15 +1,261 @@
-#include <curl/curl.h>
-#include <stdio.h>
-#include <iostream> 
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <json/json.h>
+#include <memory>
+#include "client.h"
 
-CURL *curl;
-CURLcode res;
+// CURL *curl;
+// CURLcode res;
 
 using namespace std;
+
+struct thread_param
+{
+    Json::Value* root;
+    pthread_mutex_t* mutex;
+};
+
+/*
+	* 通过get 、delete方式发送数据
+    * 返回值int, 0表示成功,1表示超时, 其它表示失败
+*/
+int curl_get_message()
+{
+	int nCode = -1;
+	std::string sIP = "127.0.0.1";
+	unsigned int nPort = 7999;
+	std::string sUser = "";   //可为空
+	std::string sPwd = "";	  //可为空	
+
+	//这边用智能指针更好
+	CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd);
+	if(NULL == pCurlClient)
+	{
+		//创建Curl对象失败
+		printf("new object failure!!!!!\n");
+		return -1;
+	}
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+        return -1;
+    }
+    
+	//设置路径
+	std::string sUrlPath = "/api/start_signal";
+	pCurlClient->setUrlPath(sUrlPath);
+	
+	//发送方式为get,数据格式为默认,内容为空
+	int nMethod = METHOD_GET;
+    //int nMethod = METHOD_DELETE;
+	int nFormat = FORMAT_JSON;
+	std::string sMsg;
+	std::string sRec;
+	nCode = pCurlClient->sendMsg(sMsg, nMethod, nFormat,sRec);
+	printf("%d\n", nCode);
+	printf("%s\n", sRec.c_str());
+		
+	delete pCurlClient;
+	
+}
+ 
+/*
+	* 通过post 、put方式发送数据
+    * 返回值int, 0表示成功,1表示超时, 其它表示失败
+*/
+int curl_post_message()
+{
+	int nCode = -1;
+	std::string sIP = "127.0.0.1";
+	unsigned int nPort = 7999;
+	std::string sUser = "";   //可为空
+	std::string sPwd = "";	  //可为空	
+ 
+	//这边用智能指针更好
+	CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd);
+	if(NULL == pCurlClient)
+	{
+		//创建Curl对象失败
+		printf("new object failure!!!!!\n");
+		return -1;
+	}
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+        return -1;
+    }
+	
+	//设置路径
+	std::string sUrlPath = "/api/result";
+	pCurlClient->setUrlPath(sUrlPath);
+	
+	//发送方式为post,数据格式为json,发送数据为json
+	int nMethod = METHOD_POST;
+    //int nMethod = METHOD_PUT;
+	int nFormat = FORMAT_JSON;
+    std::string sRec;
+	std::string sMsg = "{";
+				sMsg += "\"UserName\":\"user\",";
+				sMsg += "\"UserPwd\":\"pwd\"";
+				sMsg += "}";
+	
+	nCode = pCurlClient->sendMsg(sMsg, nMethod, nFormat,sRec);
+	printf("%d\n", nCode);
+		
+	delete pCurlClient;
+    return nCode;
+	
+}
+ 
+/*
+	* 上传文件
+    * 返回值int, 0表示成功,1表示超时, 其它表示失败
+*/
+int curl_upload_file()
+{
+	int nCode = -1;
+	std::string sIP = "127.0.0.1";
+	unsigned int nPort = 7999;
+	std::string sUser = "";   //可为空
+	std::string sPwd = "";	  //可为空	
+ 
+	//这边用智能指针更好
+	CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd);
+	if(NULL == pCurlClient)
+	{
+		//创建Curl对象失败
+		printf("new object failure!!!!!\n");
+		return -1;
+	}
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+        return -1;
+    }
+	
+	//设置路径
+	std::string sUrlPath = "/api/result";
+	pCurlClient->setUrlPath(sUrlPath);
+	
+	//上传文件名
+	std::string sFileName = "../results.json";
+	std::string sRec;
+	nCode = pCurlClient->uploadFile(sFileName, sRec);
+	printf("%d\n", nCode);
+	printf("%s\n", sRec.c_str());
+		
+	delete pCurlClient;
+    
+    return nCode;
+	
+}
+ 
+/*
+	* 下载文件
+    * 返回值int, 0表示成功,1表示超时, 其它表示失败
+*/
+int curl_download_file()
+{
+	int nCode = -1;
+	std::string sIP = "127.0.0.1";
+	unsigned int nPort = 7999;
+	std::string sUser = "";   //可为空
+	std::string sPwd = "";	  //可为空	
+ 
+	//这边用智能指针更好
+	CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd);
+	if(NULL == pCurlClient)
+	{
+		//创建Curl对象失败
+		printf("new object failure!!!!!\n");
+		return -1;
+	}
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+        return -1;
+    }
+	
+	//设置路径
+	std::string sUrlPath = "";
+	pCurlClient->setUrlPath(sUrlPath);
+	
+	//下载文件名
+	std::string sFileName = "./test.html";
+    int nFormat = FORMAT_JSON;
+	nCode = pCurlClient->downloadFile(sFileName, nFormat);
+	printf("%d\n", nCode);
+		
+	delete pCurlClient;
+    
+    return nCode;
+}
+
+void* post_result(void *arg){
+    
+    thread_param* param_ptr;
+    param_ptr = (struct thread_param *) arg;
+    Json::Value* result_root = param_ptr->root;
+    pthread_mutex_t* result_mutex = param_ptr->mutex;
+    cout<<"root2: "<<result_root<<endl;
+    cout<<"address2: "<< result_mutex<<endl;
+    int nCode = -1;
+    std::string sIP = "127.0.0.1";
+    unsigned int nPort = 7999;
+    std::string sUser = "";   //可为空
+    std::string sPwd = "";	  //可为空	
+
+    //这边用智能指针更好
+    CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd, result_mutex, result_root);
+    if(NULL == pCurlClient)
+    {
+        //创建Curl对象失败
+        printf("new object failure!!!!!\n");
+    }
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+    }
+    
+    //设置路径
+    std::string sUrlPath = "/api/result";
+    pCurlClient->setUrlPath(sUrlPath);
+    
+    std::string res="";
+    bool run_flag = true;
+    while(run_flag){
+        if(!result_root->empty()){
+            pCurlClient->sendResult(res);
+            printf("%s\n", res.c_str());
+        }
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 10 * 1000;
+        select(0,NULL,NULL,NULL,&tv);
+    }
+}
 
 //回调函数
 size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) 
@@ -82,57 +328,6 @@ int http_post_file(const char *url, const char *filename){
     return 0;
 }
 
-int http_post_json(const char *url, const Json::Value json_value){
-    CURL *curl = NULL;
-    CURLcode res;
-
-    Json::StreamWriterBuilder wbuilder;
-    wbuilder["indentation"] = "";
-    std::string post_str = Json::writeString(wbuilder, json_value);
-    // std::string post_str = json_value.toStyledString();
-
-    struct curl_httppost *post=NULL;
-    struct curl_httppost *last=NULL;
-    struct curl_slist *headers=NULL;
-    headers = curl_slist_append(headers, "Content-Type:application/json;charset=UTF-8");
-
-    if(json_value == NULL || url == NULL){
-        printf("<-----------no url or filename----------->\n");
-        return -1;
-    }
-
-    printf("URL: %s\n", url);
-    printf("post_str: %s\n", post_str.data());
-    
-    /* Add simple file section */
-    curl = curl_easy_init();
-    if(curl == NULL)
-    {
-        fprintf(stderr, "curl_easy_init() error.\n");
-    }
-
-    curl_easy_setopt(curl, CURLOPT_POST, 1);//设置为非0表示本次操作为POST
-    curl_easy_setopt(curl, CURLOPT_HEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_str.c_str());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, post_str.size());
-    int timeout = 5;
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
-
-    res = curl_easy_perform(curl);
-    if(res != CURLE_OK)
-    {
-        fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
-    }
-    curl_easy_cleanup(curl);
-    curl_formfree(post);
-    curl_slist_free_all(headers);
-    //curl_global_cleanup();
-    return 0;
-}
-
 int check_file(char *filename)
 {
     ifstream fd;
@@ -150,24 +345,288 @@ int check_file(char *filename)
     return file_len;
 }
 
+int http_post_json(const char *url, const Json::Value json_value){
+    CURL *curl = NULL;
+    CURLcode res;
+
+    Json::StreamWriterBuilder wbuilder;
+    wbuilder["indentation"] = "";
+    std::string post_str = Json::writeString(wbuilder, json_value);
+    post_str = post_str;
+    // std::string post_str = json_value.toStyledString();
+
+    if(json_value == NULL || url == NULL){
+        printf("<-----------no url or filename----------->\n");
+        return -1;
+    }
+
+    printf("URL: %s\n", url);
+    printf("post_str: %s\n", post_str.c_str());
+    
+    /* Add simple file section */
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        fprintf(stderr, "curl_easy_init() error.\n");
+    }
+
+    stringstream out;
+    int response = 0;
+    curl_slist *headers = curl_slist_append(NULL, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HEADER, 0);
+
+    curl_easy_setopt(curl, CURLOPT_POST, 1);//设置为非0表示本次操作为POST
+    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_str.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, post_str.size());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
+    int timeout = 1;
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
+
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+    {
+        fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
+    }
+
+    std::cout<<"===============test=============="<<std::endl;
+    std::cout<<out.str()<<std::endl;
+    Json::CharReaderBuilder builder;
+    Json::Value root;
+    builder["collectComments"] = false;
+    JSONCPP_STRING errs;
+    if (parseFromStream(builder, out, &root, &errs)){
+        std::cout<<root.toStyledString()<<std::endl;
+        if(root.empty()){
+            response = -4;
+        }else{
+            if(root["statusCode"].empty()){
+                response = -5;
+            }else if(root["statusCode"].isInt()){
+                response = root["statusCode"].asInt();
+            }else{
+                response = -102;
+            }
+        }
+    }else{
+        std::cout<<root.size();
+        std::cout<<"parse failed"<<std::endl;
+        response = -3;
+    }
+
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+    //curl_global_cleanup();
+    return response;
+}
+
+int http_get(const char *url){
+    CURL *curl = NULL;
+    CURLcode res;
+
+    if(url == NULL){
+        printf("<-----------no url----------->\n");
+        return -1;
+    }
+
+    printf("URL: %s\n", url);
+    
+    /* Add simple file section */
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        fprintf(stderr, "curl_easy_init() error.\n");
+        return -2;
+    }
+    std::stringstream out;
+
+    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
+    int timeout = 5;
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
+
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+    {
+        fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
+    }
+    std::cout<<"===============out=============="<<std::endl;
+    std::cout<< out.str()<<std::endl;
+    curl_easy_cleanup(curl);
+    //curl_global_cleanup();
+    return 0;
+}
+
 //POST json
 int main()
 {
+    pthread_t post_thread_id = 3;
+    pthread_mutex_t result_mutex;
+    pthread_mutex_init(&result_mutex, NULL);
+    Json::Value* result_root = new Json::Value();
+    cout<<"root1: "<<result_root<<endl;
+    cout<<"address1: "<< &result_mutex<<endl;
+    CurlClient::globalInit();
 
-    char *url = "http://127.0.0.1:7999/api/result";
-    char *filename = "/home/miki0w0/gree/results.json";
+    thread_param post_thread_param;
+    post_thread_param.root = result_root;
+    post_thread_param.mutex = &result_mutex;
     
-    //构建json
-    Json::Value root;
-    root["n1"]=Json::Value(1);
-    root["n2"]=Json::Value(2);
-    http_post_json(url, root);
+    pthread_create(&post_thread_id, NULL, post_result, (void*)&post_thread_param);
+    
+    bool run = true;
+    while(run){
+        int c = getchar();
+        switch(c){
+            case 'a':
+            case 'A':
+            {
+                curl_post_message();
+                // char *url = "http://127.0.0.1:7999/api/result";
+                // char *filename = "/home/miki0w0/gree/results.json";
+                // std::ifstream batch_file;
+                // batch_file.open(filename , std::ios::in);
+                // if(!batch_file){
+                //     printf("[ERROR] failed to open batch file\n");
+                //     return -1;
+                // }else{
+                //     Json::CharReaderBuilder builder;
+                //     Json::Value root;
+                //     builder["collectComments"] = false;
+                //     JSONCPP_STRING errs;
+                //     if (parseFromStream(builder, batch_file, &root, &errs)){
+                //         std::cout<<root.toStyledString()<<std::endl;
+                //         int ret = http_post_json(url, root);
+                //         switch(ret){
+                //             case 1:
+                //                 // 收到
+                //                 std::cout << "result is received." << std::endl;
+                //                 break;
+                //             case -101:
+                //                 // 没收到
+                //                 std::cout << "does not receive the result." << std::endl;
+                //                 break;
+                //             case -102:
+                //                 std::cout << "response Stype is wrong." << std::endl;
+                //                 break;
+                //             default:
+                //                 // 不在列表中的解析值
+                //                 std::cout << "response not in list." << std::endl;
+                //                 break;
+                //         }
+                //     }
+                // }
+                break;
+            }
+            case 's':
+            case 'S':
+            {
+                char* url = "http://127.0.0.1:7999/api/start_signal";
+                // http_get(url);
+                curl_get_message();
+                break;
+            }
+            case 'd':
+            case 'D':
+            {
+                // char *url = "http://127.0.0.1:7999/api/result";
+                // char *filename = "/home/miki0w0/gree/results.json";
+                // http_post_file(url,filename);
+                curl_upload_file();
+                break;
+            }
+            case 'q':
+            case 'Q':
+            {
+                Json::Value batch_item;
+                Json::StreamWriterBuilder wbuilder;
+                wbuilder["indentation"] = "";
+                std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
 
+                batch_item["work"] = 1;
+                batch_item["id"] = 1;
+                batch_item["state"] = "fault";
+                batch_item["fault type"] = 1001;
+                result_root->append(batch_item);
+                std::cout << "'" << Json::writeString(wbuilder, *(result_root)) << "'" << std::endl;
+                batch_item.clear();
+                break;
+            }
+            case 'w':
+            case 'W':
+            {
+                char *url = "http://127.0.0.1:7999/api/start";
+                char *filename = "/home/miki0w0/gree/batch_info.json";
+                std::ifstream batch_file;
+                batch_file.open(filename , std::ios::in);
+                if(!batch_file){
+                    printf("[ERROR] failed to open batch file\n");
+                    return -1;
+                }else{
+                    Json::CharReaderBuilder builder;
+                    Json::Value root;
+                    builder["collectComments"] = false;
+                    JSONCPP_STRING errs;
+                    if (parseFromStream(builder, batch_file, &root, &errs)){
+                        std::cout<<root.toStyledString()<<std::endl;
+                        int ret = http_post_json(url, root);
+                        switch(ret){
+                            case 1:
+                                // 收到
+                                std::cout << "result is received." << std::endl;
+                                break;
+                            case -101:
+                                // 没收到
+                                std::cout << "does not receive the result." << std::endl;
+                                break;
+                            case -102:
+                                std::cout << "response Stype is wrong." << std::endl;
+                                break;
+                            default:
+                                // 不在列表中的解析值
+                                std::cout << "response not in list." << std::endl;
+                                break;
+                        }
+                    }
+                }
+                break;
+            }
+            case 'x':
+            case 'X':
+            case 27:
+                run = false;
+                break;
+        }
+    }
+
+    // //构建json
+    // std::ifstream batch_file;
+    // batch_file.open(filename , std::ios::in);
+    // if(!batch_file){
+    //     printf("[ERROR] failed to open batch file\n");
+    //     return -1;
+    // }else{
+    //     Json::CharReaderBuilder builder;
+	//     Json::Value root;
+    //     builder["collectComments"] = false;
+    //     JSONCPP_STRING errs;
+    //     if (parseFromStream(builder, batch_file, &root, &errs)){
+    //         http_post_json(url, root);
+    //     }
+    // }
     
     // if(check_file(filename) == -1){
     //     printf("file cannot open");
     //     return 1;
     // }
+    // http_post_file(url, filename);
+
     // curl = curl_easy_init();
 
     // if(curl)

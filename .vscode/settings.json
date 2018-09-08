@@ -50,7 +50,12 @@
         "cinttypes": "cpp",
         "type_traits": "cpp",
         "tuple": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "csignal": "cpp",
+        "codecvt": "cpp",
+        "condition_variable": "cpp",
+        "future": "cpp",
+        "*.ipp": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

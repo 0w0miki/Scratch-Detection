@@ -2,6 +2,7 @@
 
 Camera::Camera():
 cam_id_(1),
+fake_ptr_(0),
 g_device_(NULL),
 g_frame_data_({0}),
 g_raw8_buffer_(NULL),
@@ -21,6 +22,7 @@ file_dir_("../images/test/")
 
 Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list):
 cam_id_(1),
+fake_ptr_(0),
 count_(0),
 g_device_(NULL),
 g_frame_data_({0}),
@@ -38,8 +40,9 @@ file_dir_("../images/test/")
     unsolved_list_ = unsolved_list;
 }
 
-Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<int64_t>* work_count_list,std::vector<std::vector<ROI>>* batch_ROI_list):
+Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<int64_t>* work_count_list,std::vector<std::vector<ROI>>* batch_ROI_list):
 cam_id_(1),
+fake_ptr_(0),
 count_(0),
 g_device_(NULL),
 g_frame_data_({0}),
@@ -56,13 +59,12 @@ file_dir_("../images/test/")
     mutex_ = mutex;
     unsolved_list_ = unsolved_list;
     work_count_list_ = work_count_list;
-    work_count_iter_ = work_count_list_->begin();
     batch_ROI_list_ = batch_ROI_list;
-    batch_ROI_iter_ = batch_ROI_list->begin();
 }
 
-Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::vector<std::string>* work_id_list, std::vector<int64_t>* work_count_list):
+Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<std::string>* work_name_list, std::deque<int64_t>* work_count_list):
 cam_id_(1),
+fake_ptr_(0),
 count_(0),
 g_device_(NULL),
 g_frame_data_({0}),
@@ -78,10 +80,8 @@ file_dir_("../images/test/")
 {
     mutex_ = mutex;
     unsolved_list_ = unsolved_list;
-    work_id_list_ = work_id_list;
-    work_id_iter_ = work_id_list_->begin();
+    work_name_list_ = work_name_list;
     work_count_list_ = work_count_list;
-    work_count_iter_ = work_count_list_->begin();
 }
 
 Camera::~Camera()
@@ -406,6 +406,7 @@ int Camera::start(){
         printf("<Failed to create the collection thread>\n");
         return -1;
     }
+    pthread_detach(g_acquire_thread_);
     return 0;
 }
 
@@ -458,7 +459,12 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
     char filename[64];
     // static int rgb_file_index = 1;
     FILE* ff = NULL;
-    sprintf(name, "%s_%ld.ppm", work_id_iter_->c_str(), count_);
+    std::string work_name = work_name_list_->at(fake_ptr_);
+    if(work_name.front() == 'r')
+        // 重打
+        sprintf(name, "%s.ppm", work_name_list_->at(fake_ptr_).c_str());
+    else
+        sprintf(name, "%s_%ld.ppm", work_name_list_->at(fake_ptr_).c_str(), count_);
     sprintf(filename,"%s%s",file_dir_.data(),name);
     ff=fopen(filename,"wb");
     if(ff != NULL)
@@ -473,10 +479,10 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
         printf("<Save %s success>\n", name);
     }
     count_++;
-    if(count_ >= *work_count_iter_){
-        if(work_count_iter_ != work_count_list_->end()){
-            work_count_iter_++;
-            work_id_iter_++;
+    if(count_ >= work_count_list_->at(fake_ptr_)){
+        if(!work_count_list_->empty()){
+            fake_ptr_++;
+            count_ = 0;
         }else{
             printf("[WARN] work end!");
         }
@@ -505,7 +511,7 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
     }
     void* ROI_buffer = image_buffer;
     for(size_t i = 0;i<ROIs.size();i++){
-        sprintf(name, "%s_%ld.ppm", work_id_iter_->c_str(), count_);
+        sprintf(name, "%s_%ld.ppm", work_name_list_->at(fake_ptr_).c_str(), count_);
         sprintf(filename,"%s%s",file_dir_.data(),name);
         printf("filename:%s\n",filename);
         ff=fopen(filename,"wb");
@@ -526,10 +532,10 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
             printf("<Save with ROI %s success>\n", name);
         }
         count_++;
-        if(count_ >= *work_count_iter_){
-            if(work_id_iter_ != work_id_list_->end()){
-                work_count_iter_++;
-                work_id_iter_++;
+        if(count_ >= work_count_list_->at(fake_ptr_)){
+            if(!work_name_list_->empty()){
+                fake_ptr_++;
+                count_ = 0;
             }
             if(batch_ROI_iter_ != batch_ROI_list_->end()){
                 batch_ROI_iter_++;
@@ -790,4 +796,13 @@ int Camera::applyParam(){
 
 int64_t Camera::getCount(){
     return count_;
+}
+
+int Camera::popList(){
+    if(fake_ptr_ > 0){
+        fake_ptr_ -= 1;
+        return 0;
+    }else{
+        return -1;
+    }
 }

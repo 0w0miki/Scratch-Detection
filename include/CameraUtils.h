@@ -36,11 +36,11 @@ void ProcessData(void *image_buffer, void *image_raw8_buffer, void *image_rgb_bu
 //保存raw数据文件
 void SaveRawFile(void *image_buffer, size_t width, size_t height);
 
-//保存数据到PPM文件
-void SavePPMFile(void *image_buffer, size_t width, size_t height);
+// //保存数据到PPM文件
+// void SavePPMFile(void *image_buffer, size_t width, size_t height);
 
-// 保存ROI中的图像到PPM
-void SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vector<ROI> ROIs);
+// // 保存ROI中的图像到PPM
+// void SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vector<ROI> ROIs);
 
 #endif // CAMERAUTILS_H
 

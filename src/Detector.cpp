@@ -9,7 +9,9 @@ Detector::Detector():
     save_result_switch_(true),
     save_img_switch_(true),
     show_time_switch_(true),
+    origin_flag(false),
     detection_thread_(2),
+    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
     d_width_(400),
@@ -25,6 +27,8 @@ Detector::Detector():
         cout<< "[WARN]failed to open log file"<<endl;
     }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+
+    input_type_ = DETECTA4;
 }
 
 Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
@@ -36,7 +40,9 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     save_result_switch_(true),
     save_img_switch_(true),
     show_time_switch_(true),
+    origin_flag(false),
     detection_thread_(2),
+    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
     d_width_(400),
@@ -57,7 +63,13 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     unsolved_list_ = list;
 }
 
-Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list):
+Detector::Detector(
+    pthread_mutex_t* mutex, 
+    std::queue<string>* list, 
+    std::deque<string>* batch_origin_list, 
+    std::deque<int64_t>* batch_count_list, 
+    std::vector<cv::Point2i>* desired_size_list
+):
     bin_thresh_(40),
     k_pos_(0.01),
     k_scratch_(0.001),
@@ -66,7 +78,9 @@ Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector
     save_result_switch_(true),
     save_img_switch_(true),
     show_time_switch_(true),
+    origin_flag(false),
     detection_thread_(2),
+    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
     d_width_(400),
@@ -89,14 +103,21 @@ Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector
     batch_origin_list_ = batch_origin_list;
     batch_count_list_ = batch_count_list;
     desired_size_list_ = desired_size_list;
-    batch_origin_iter_ = batch_origin_list_->begin();
-    batch_count_iter_ = batch_count_list_->begin();
     desired_size_iter_ = desired_size_list_->begin();
 
-    input_type_ = 1;
+    input_type_ = DETECTA4;
 }
 
-Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<std::string>* work_id_list, std::vector<int64_t>* work_count_list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list):
+Detector::Detector(
+    pthread_mutex_t* mutex, 
+    pthread_mutex_t* result_mutex, 
+    Json::Value* root, 
+    std::queue<string>* list, 
+    std::deque<std::string>* work_name_list, 
+    std::deque<int64_t>* work_count_list, 
+    std::deque<string>* batch_origin_list, 
+    std::deque<int64_t>* batch_count_list
+):
     bin_thresh_(40),
     k_pos_(0.01),
     k_scratch_(0.001),
@@ -105,7 +126,9 @@ Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector
     save_result_switch_(true),
     save_img_switch_(true),
     show_time_switch_(true),
+    origin_flag(false),
     detection_thread_(2),
+    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
     d_width_(400),
@@ -123,19 +146,16 @@ Detector::Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
     
     mutex_ = mutex;
+    result_mutex_ = result_mutex;
     unsolved_list_ = list;
+    result_root_ = root;
 
-    work_id_list_ = work_id_list;
+    work_name_list_ = work_name_list;
     work_count_list_ = work_count_list;
     batch_origin_list_ = batch_origin_list;
     batch_count_list_ = batch_count_list;
     
-    work_id_iter_ = work_id_list_->begin();
-    work_count_iter_ = work_count_list_->begin();
-    batch_origin_iter_ = batch_origin_list_->begin();
-    batch_count_iter_ = batch_count_list_->begin();
-    
-    input_type_ = 1;
+    input_type_ = DETECTA4;
 }
 
 Detector::~Detector()
@@ -162,9 +182,11 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     image_bin = image_gray > bin_thresh_;
     Erosion(image_bin, image_bin,0,12);
     Dilation(image_bin, image_bin,0,12);
-    namedWindow("gray",CV_WINDOW_NORMAL);
-    imshow("gray", image_gray);
-    waitKey(0);
+    
+    // namedWindow("gray",CV_WINDOW_NORMAL);
+    // imshow("gray", image_gray);
+    // waitKey(0);
+    
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(image_bin, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
@@ -177,9 +199,11 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
         // for opencv 3
         cv::drawContours(image_bin, contours, index, color,  CV_FILLED, 8, hierarchy);
     }
-    namedWindow("origin",CV_WINDOW_NORMAL);
-    imshow("origin", image_bin);
-    waitKey(0);
+
+    // namedWindow("origin",CV_WINDOW_NORMAL);
+    // imshow("origin", image_bin);
+    // waitKey(0);
+    
     // 找四条直线
     int i,j;
     std::vector<std::vector<cv::Point2f> > linePoints(4);
@@ -214,9 +238,11 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
         // std::cout <<point1.x<<","<< point1.y<<"  ,  "<<point2.x<<","<<point2.y<< std::endl;
         cv::line(image_bin2, p1, p2, cv::Scalar(255), 10, 8, 0);
     }
-    namedWindow("with line",CV_WINDOW_NORMAL);
-    imshow("with line", image_bin2);
-    waitKey(0);
+
+    // namedWindow("with line",CV_WINDOW_NORMAL);
+    // imshow("with line", image_bin2);
+    // waitKey(0);
+    
     // 四个交点
     for(i=0;i<4;i++){
         CrossPoint(points[i],linePoints[i],linePoints[(i+1)%4]);
@@ -782,13 +808,8 @@ void Detector::setOriginImg(string filename){
     }else if(input_type_ == DETECTEACH){
         template_label_ = getLabelImg(template_img_);
     }
-    if(id_ > *work_count_iter_){
-        id_ = 1;
-        work_count_iter_++;
-        work_id_iter_++;
-    }
     // cv::cvtColor(template_img_,template_label_,CV_BGR2GRAY);
-    
+    setThresh();
     count_ = 1;
 }
 
@@ -806,11 +827,7 @@ void Detector::setOriginImg(cv::Mat img){
     }else if(input_type_ == DETECTEACH){
         template_label_ = getLabelImg(template_img_);
     }
-    if(id_ > *work_count_iter_){
-        id_ = 1;
-        work_count_iter_++;
-        work_id_iter_++;
-    }
+    setThresh();
     count_ = 1;
 }
 
@@ -832,32 +849,9 @@ void Detector::setImg(string filename){
     findLabel(img, img_gray_, img_points_); 
     label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     // label_ = getLabelImg(img_gray_);
-    imshow("img",img_gray_);
-    waitKey();
+    // imshow("img",img_gray_);
+    // waitKey();
     adjustSize(label_, template_label_);
-    id_++;
-    count_++;
-    if(count_ > *batch_count_iter_){
-        batch_count_iter_++;
-        batch_origin_iter_++;
-        
-        if(batch_origin_iter_ != batch_origin_list_->end()){
-            setOriginImg(*batch_origin_iter_);
-        }else{
-            printf("[WARN] origin image list end.");
-        }
-        if(input_type_ == DETECTEACH){
-            desired_size_iter_++;
-            cout<<(*desired_size_iter_).x<<endl;
-            if(desired_size_iter_ != desired_size_list_->end()){
-                setDesiredSize(*desired_size_iter_);
-                cout<<"test"<<endl;
-            }else{
-                printf("[WARN] desired size list end.");
-            }
-        }
-        
-    }
     
     // imshow("label_",label_);
     // waitKey();
@@ -878,30 +872,6 @@ void Detector::setImg(cv::Mat img){
     //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     label_ = getLabelImg(img_gray_);
     adjustSize(label_, template_label_);
-    id_++;
-    count_++;
-    if(count_ > *batch_count_iter_){
-        batch_count_iter_++;
-        batch_origin_iter_++;
-        if(batch_origin_iter_ != batch_origin_list_->end()){
-            setOriginImg(*batch_origin_iter_);
-        }else{
-            printf("[WARN] origin image list end.");
-        }
-
-        if(id_ > *work_count_iter_){
-            id_ = 1;
-            work_count_iter_++;
-            work_id_iter_++;
-        }
-        if(input_type_ == DETECTEACH){
-            if(desired_size_iter_ != desired_size_list_->end()){
-                setDesiredSize(*desired_size_iter_);
-            }else{
-                printf("[WARN] desired size list end.");
-            }
-        }
-    }
     // imshow("label_",label_);
     // waitKey();
     // getROI(img_gray_, label_);
@@ -929,6 +899,7 @@ int Detector::launchThread(){
         printf("<Failed to create the detection thread>\n");
         return -1;
     }
+    pthread_detach(detection_thread_);
     return 0;
 }
 
@@ -959,7 +930,7 @@ int Detector::setParam(){
         }
         paramfile.close();
     }
-    setThresh();
+    // setThresh();
     return 0;
 }
 
@@ -978,11 +949,14 @@ void Detector::setThresh(){
     bigpro_thresh_ = label_sum[0]/255 * k_bigpro_;
     size_thresh_ = 3600;
     
-    d_width_ = 1900;
-    d_height_ = 1300;
+    // d_width_ = 1900;
+    // d_height_ = 1300;
 }
 
 int Detector::detect(){
+    if(work_name_list_->empty()){
+        return -10;
+    }
     int size_res = checkSize();
     int pos_res = checkPos();
     int bigpro_res = checkBigProblem();
@@ -1004,7 +978,10 @@ int Detector::detect(){
     // 保存json文件
     if(result != 0){
         writeResJson(result);
-    }    
+    }
+    id_++;
+    count_++;
+    return 0;
 }
 
 void Detector::ProcDetect(){
@@ -1019,8 +996,46 @@ void Detector::ProcDetect(){
         string unsolved_filename = unsolved_list_->front();
         pthread_mutex_unlock(mutex_);
         cout<<"unsolved filename:"<<unsolved_filename<<endl;
+        if(!batch_origin_list_->empty() && false == origin_flag){
+            std::string origin_name = batch_origin_list_->front();
+            setOriginImg(origin_name);
+            printf("<----------- set new origin image ----------->\n");
+            origin_flag = true;
+        }
         setImg(unsolved_filename);
-        detect();
+        int ret = detect();
+        if(ret != 0){
+
+        }
+        
+        if(!batch_count_list_->empty() && count_ > batch_count_list_->front()){
+            batch_origin_list_->pop_front();
+            batch_count_list_->pop_front();
+            if(!batch_origin_list_->empty()){
+                setOriginImg(batch_origin_list_->front());
+            }else{
+                printf("[WARN] origin image list end.\n");
+                origin_flag = false;
+            }
+            
+            if(input_type_ == DETECTEACH){
+                desired_size_iter_++;
+                cout<<(*desired_size_iter_).x<<endl;
+                if(desired_size_iter_ != desired_size_list_->end()){
+                    setDesiredSize(*desired_size_iter_);
+                    cout<<"test"<<endl;
+                }else{
+                    printf("[WARN] desired size list end.\n");
+                }
+            }
+        }
+        if(!work_count_list_->empty() && id_ > work_count_list_->front()){
+            id_ = 1;
+            work_count_list_->pop_front();
+            work_name_list_->pop_front();
+            if(camera_ != NULL)
+                camera_->popList();
+        }
 
         pthread_mutex_lock(mutex_);
         unsolved_list_->pop();
@@ -1028,8 +1043,12 @@ void Detector::ProcDetect(){
 
         // 发送消息
 
+        // sleep for 20ms
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 20 * 1000;
+        select(0,NULL,NULL,NULL,&tv);
     }
-    
 }
 
 void* Detector::detector_pth(void* args){
@@ -1048,22 +1067,38 @@ void Detector::setDesiredSize(cv::Point2i desired_size){
 
 void Detector::writeResJson(int8_t result){
     printf("<-------------------Write json file------------------------>");
-    Json::Value root;
+    // Json::Value root;
     Json::Value batch_item;
-    Json::Value Id_item;
     Json::StreamWriterBuilder wbuilder;
     wbuilder["indentation"] = "";
     std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
 
-    batch_item["work"] = *work_count_iter_;
-    Id_item["id"] = id_;
-    Id_item["state"] = "fault";
-    Id_item["fault type"] = result;    
-    batch_item["image state"].append(Id_item);
-    Id_item.clear();
-    root.append(batch_item);
+    // To Do: 修改返回内容
+    std::string work_name = work_name_list_->front();
+    std::vector<std::string> split_name;
+    SplitString(work_name,split_name,"_");
+    std::cout<<split_name[0]<<std::endl;
+    if(split_name[0] == "reprint"){
+        // 重打
+        int work_id  = std::stoi(split_name[1]);
+        batch_item["printJobID"] = work_id;
+        int work_number = std::stoi(split_name[2]);
+        batch_item["printWorkNumber"] = work_number;
+    }else{
+        // 新打
+        int work_id  = std::stoi(split_name[1]);
+        batch_item["printJobID"] = work_id;
+        batch_item["printWorkNumber"] = id_;
+    }
+    batch_item["faultType"] = result;
+    
+    pthread_mutex_unlock(result_mutex_);
+    result_root_->append(batch_item);
     batch_item.clear();
-    std::cout << "'" << Json::writeString(wbuilder, root) << "'" << std::endl;
+    std::cout << "'" << result_root_->toStyledString() << "'" << std::endl;
+    pthread_mutex_unlock(result_mutex_);
+    // char* url = "http://127.0.0.1:7999/api/result";
+    // int ret = http_post_json(url, *result_root_);
     // writer->write(root, &file);
     // resFile.close();
 

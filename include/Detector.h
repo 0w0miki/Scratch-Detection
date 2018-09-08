@@ -7,6 +7,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <queue>
+#include "utils.h"
+#include "Camera.h"
 #include "json/json.h"
 
 #define DETECTA4 0
@@ -15,6 +17,7 @@
 class Detector
 {
 private:
+    // 图
     cv::Mat template_img_;
     cv::Mat template_label_;
     cv::Mat template_img_resize_;
@@ -25,6 +28,7 @@ private:
     
     // 线程
     pthread_mutex_t* mutex_;
+    pthread_mutex_t* result_mutex_;
     pthread_t detection_thread_; 
     std::queue<string>* unsolved_list_;
 
@@ -35,7 +39,7 @@ private:
     string template_dir_;
     string img_dir_;
 
-    // id
+    // 计数器
     int64_t count_;
     int64_t id_;
 
@@ -63,18 +67,22 @@ private:
     bool log_switch_;
     bool start_detect_;
 
+    // 原图是否已设置标志位
+    bool origin_flag;
+
     // 批次信息
-    std::vector<std::string>* work_id_list_;
-    std::vector<std::string>::iterator work_id_iter_;
-    std::vector<int64_t>* work_count_list_;
-    std::vector<int64_t>::iterator work_count_iter_;
-    std::vector<string>* batch_origin_list_;
-    std::vector<string>::iterator batch_origin_iter_;
-    std::vector<int64_t>* batch_count_list_;
-    std::vector<int64_t>::iterator batch_count_iter_;
+    std::deque<std::string>* work_name_list_;
+    std::deque<int64_t>* work_count_list_;
+    std::deque<string>* batch_origin_list_;
+    std::deque<int64_t>* batch_count_list_;
     std::vector<cv::Point2i>* desired_size_list_;
     std::vector<cv::Point2i>::iterator desired_size_iter_;
 
+    // 返回信息
+    Json::Value* result_root_;
+
+    // 相机指针
+    Camera* camera_;
 
 protected:
     void findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
@@ -99,8 +107,8 @@ protected:
 public:
     Detector();
     Detector(pthread_mutex_t* mutex, std::queue<string>* list);
-    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list);
-    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::vector<std::string>* work_id_list_, std::vector<int64_t>* work_count_list_, std::vector<string>* batch_origin_list, std::vector<int64_t>* batch_count_list);
+    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::deque<string>* batch_origin_list, std::deque<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list);
+    Detector(pthread_mutex_t* mutex, pthread_mutex_t* result_mutex,Json::Value* root, std::queue<string>* list, std::deque<std::string>* work_name_list_, std::deque<int64_t>* work_count_list_, std::deque<string>* batch_origin_list, std::deque<int64_t>* batch_count_list);
     ~Detector();
     int setParam();
     int detect();

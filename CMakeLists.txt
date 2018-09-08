@@ -55,8 +55,19 @@ target_link_libraries(Camera ${CAMERALIBS})
 add_library(Detection SHARED
     src/Detector.cpp
     src/DetectUtils.cpp
+    src/utils.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
+target_link_libraries(Detection 
+    ${CURL_LIBRARY} 
+    Camera
+)
+
+add_library(Client SHARED
+    src/client.cpp
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(Client ${CURL_LIBRARY})
 
 # demo for camera
 add_executable(CameraDemo 
@@ -79,9 +90,11 @@ target_link_libraries(DetectDemo
 
 add_executable(Demo 
     src/demo.cpp
+    src/utils.cpp
+    src/client.cpp
 )
 target_link_libraries(Demo
-    ${CAMERALIBS}
+    # ${CAMERALIBS}
     ${OpenCV_LIBS}
     Camera
     Detection
@@ -103,10 +116,12 @@ add_executable(url_demo
 )
 target_link_libraries(url_demo
     ${CURL_LIBRARY}
+    Client
+    Threads::Threads
 )
 
 AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpserver httpserver)
-add_executable(server_demo
+add_executable(server
     ${httpserver}
     third_party/mongoose/mongoose.c
     third_party/jsoncpp/src/jsoncpp.cpp
@@ -116,4 +131,19 @@ AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpclient httpclient)
 add_executable(client_demo
     ${httpclient}
     third_party/mongoose/mongoose.c
+)
+
+add_executable(server_demo
+    src/server_demo.cpp
+    src/http_server.cpp
+    src/utils.cpp
+    src/client.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(server_demo
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
 )

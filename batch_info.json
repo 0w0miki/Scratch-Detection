@@ -1,1 +1,23 @@
-{"work":[{"id":"1","total":2,"batch":[{"img url" : "template.JPG","total":1},{"img url": "template.JPG","total":1}]}]}
+{"printwork":[
+        {
+            "printJobID": 1,
+            "printQuantity":2,
+            "printRedoFlag": false,
+            "pictureLink":
+            [
+                "template.JPG",
+                "template.JPG"
+            ]
+        },
+        {
+            "printJobID": 2,
+            "printQuantity":1,
+            "printRedoFlag": true,
+            "pictureLink":
+            [
+                "template.JPG"
+            ],
+            "printWorkNumber":[37]
+        }
+    ]
+}

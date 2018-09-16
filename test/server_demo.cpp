@@ -9,15 +9,73 @@
 #include "Detector.h"
 #include "client.h"
 
+
 // 初始化HttpServer静态类成员
 mg_serve_http_opts HttpServer::s_server_option;
-std::string HttpServer::s_web_dir = "./web";
+std::string HttpServer::s_web_dir = "../web";
 std::unordered_map<std::string, ReqHandler> HttpServer::s_handler_map;
 // 批次信息
 std::deque<std::string> work_name_list;
 std::deque<int64_t> work_count_list;
 std::deque<std::string> batch_origin_list;
 std::deque<int64_t> batch_count_list;
+
+static std::string client_host;
+static int server_port;
+static int client_port;
+
+/*
+	* 下载文件
+    * 返回值int, 0表示成功,1表示超时, 其它表示失败
+*/
+int downloadFileList(std::vector<string> file_list){
+	int nCode = -1;
+	std::string sIP = client_host;
+	unsigned int nPort = client_port;
+	std::string sUser = "";   //可为空
+	std::string sPwd = "";	  //可为空	
+
+	std::cout<< sIP << ":" << nPort<<endl;
+ 
+	//这边用智能指针更好
+	CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd);
+	if(NULL == pCurlClient)
+	{
+		//创建Curl对象失败
+		printf("new object failure!!!!!\n");
+		return -1;
+	}
+    
+    //curl初始化
+    nCode = pCurlClient->initCurlResource();
+    if(0 != nCode)
+    {
+        printf("curl init failure!!!!!\n");
+        delete pCurlClient;
+        pCurlClient = NULL;
+        return -1;
+    }
+	
+	//设置路径
+	// TO DO: 修改请求url
+	std::string sUrlPath = "";
+	pCurlClient->setUrlPath(sUrlPath);
+	
+	//下载文件名
+	for(int i; i < file_list.size(); i++){
+		std::string sFileName = "../images/templates/";
+		sFileName.append(file_list[i]);
+		int nFormat = 0;
+		std::cout<<sFileName<<std::endl;
+		nCode = pCurlClient->downloadFile(sFileName, nFormat);
+		printf("%d\n", nCode);
+	}
+		
+	delete pCurlClient;
+    
+    return nCode;
+
+}
 
 bool handle_signal(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback)
 {
@@ -33,8 +91,8 @@ bool handle_signal(std::string url, std::string body, mg_connection *c, OnRspCal
 
 bool handle_result(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	std::cout << "handle result" << std::endl;
-	std::cout << "url: " << url << std::endl;
-	std::cout << "body: " << body << std::endl;
+	// std::cout << "url: " << url << std::endl;
+	// std::cout << "body: " << body << std::endl;
 
 	// int l = body.length();
 	// for(size_t i=0;i<l;i++){
@@ -56,21 +114,33 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 	Json::Value root;
 	builder["collectComments"] = false;
 	JSONCPP_STRING errs;
+	int return_state = 0;
+	std::vector<std::string> download_list;
 	if (parseFromStream(builder, ss, &root, &errs)){
 		int work_size = root["printwork"].size();
 		if(work_size > 0){
 			for(int i = 0; i < work_size; i++){
 				int work_id = root["printwork"][i]["printJobID"].asInt();
 				int64_t work_count = root["printwork"][i]["printQuantity"].asInt64();
+				// 判断文件夹是否存在
+				std::string origin_dir = "../images/templates/";
+				origin_dir.append(to_string(work_id));
+				if(isDirExist(origin_dir) == -1){
+					// 下载所有原图，返回错误
+					return_state = -1;
+					mkdir(origin_dir.c_str(),S_IRWXU|S_IRWXG|S_IRWXO);
+				}
+				
 				if(root["printwork"][i]["pictureLink"].isString()){
 					// 图像是string 所有都是这个图
 					batch_count_list.push_back(work_count);
 					batch_origin_list.push_back(root["printwork"][i]["pictureLink"].asString());
+					if(return_state == -1)
+						download_list.push_back(root["printwork"][i]["pictureLink"].asString());
 					std::cout << "set batch num: " << work_count << std::endl;
 					std::cout << "set origin image url" << root["printwork"][i]["pictureLink"].asString() <<std::endl;
 					std::string work_name = "print_";
 					work_name.append(to_string(work_id));
-					work_name.append("_");
 					work_name_list.push_back(work_name);
 					work_count_list.push_back(work_count);
 					std::cout << "set work name:" << work_name << std::endl;
@@ -82,7 +152,6 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 						// 不是重打
 						std::string work_name = "print_";
 						work_name.append(to_string(work_id));
-						work_name.append("_");
 						work_name_list.push_back(work_name);
 						work_count_list.push_back(work_count);
 						std::cout << "set work name:" << work_name <<std::endl;
@@ -97,7 +166,6 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 							work_name.append(to_string(work_id));
 							work_name.append("_");
 							work_name.append(to_string(reprint_id));
-							work_name.append("_");
 							work_name_list.push_back(work_name);
 							work_count_list.push_back(1);
 							std::cout << "set work name:" << work_name <<std::endl;
@@ -105,6 +173,12 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 						}
 						batch_count_list.push_back(1);
 						batch_origin_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
+						if(return_state == -1){
+							std::string down_filename = to_string(work_id);
+							down_filename.append("/");
+							down_filename.append(root["printwork"][i]["pictureLink"][j].asString());
+							download_list.push_back(down_filename);
+						}
 						std::cout << "set batch num: " << 1 << std::endl;
 						std::cout << "set origin image url" << root["printwork"][i]["pictureLink"][j].asString() <<std::endl;
 					}
@@ -113,16 +187,25 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 			}
 		}else{
 			printf("[ERROR] no work array");
-			return -2;
+			return_state = -2;
 		}
 	}else{
 		std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
 	}
 	
-	rsp_callback(c, "0");
+	rsp_callback(c, to_string(return_state));
+
+	if(return_state == -1){
+		sleep(1);
+		std::cout << "start download" << std::endl;
+		downloadFileList(download_list);
+	}
+
 
 	return true;
 }
+
+
 
 void* post_result(void *arg){
     
@@ -131,10 +214,12 @@ void* post_result(void *arg){
     Json::Value* result_root = param_ptr->root;
     pthread_mutex_t* result_mutex = param_ptr->mutex;
     int nCode = -1;
-    std::string sIP = "127.0.0.1";
-    unsigned int nPort = 7999;
+    std::string sIP = client_host;
+    unsigned int nPort = client_port;
     std::string sUser = "";   //可为空
     std::string sPwd = "";	  //可为空	
+
+	std::cout<< sIP << ":" << nPort<<endl;
 
     //这边用智能指针更好
     CurlClient* pCurlClient = new CurlClient(sIP, nPort, sUser, sPwd, result_mutex, result_root);
@@ -163,17 +248,41 @@ void* post_result(void *arg){
         if(!result_root->empty()){
             pCurlClient->sendResult(res);
             printf("%s\n", res.c_str());
-			struct timeval tv;
-			tv.tv_sec = 0;
-			tv.tv_usec = 10 * 1000;
-			select(0,NULL,NULL,NULL,&tv);
         }
+		struct timeval tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 10 * 1000;
+		select(0,NULL,NULL,NULL,&tv);
     }
 }
 
 void* startServer(void* server){
 	std::shared_ptr<HttpServer> http_server = *(std::shared_ptr<HttpServer> *) server;
 	http_server->Start();
+}
+
+int readNetParam(){
+	std::ifstream paramfile;
+	paramfile.open("../settings.json", std::ios::binary);
+    if(!paramfile){
+        printf("[ERROR] failed to open settings.json\n");
+        return -1;
+    }else{
+        Json::CharReaderBuilder builder;
+	    Json::Value root;
+        builder["collectComments"] = false;
+        JSONCPP_STRING errs;
+        if (parseFromStream(builder, paramfile, &root, &errs)){
+			client_host = root["communication"]["client_host"].empty() ? "127.0.0.1" : root["communication"]["client_host"].asString();
+			server_port = root["communication"]["server_port"].empty() ? 7999 : root["communication"]["server_port"].asInt();
+			client_port = root["communication"]["client_port"].empty() ? 7999 : root["communication"]["client_port"].asInt();
+			cout << client_host<<":"<<client_port<<","<<server_port << endl;
+        }else{
+            cout << "[ERROR] Jsoncpp error: " << errs << endl;
+        }
+        paramfile.close();
+    }
+	return 0;
 }
 
 int main(int argc, char *argv[]) 
@@ -188,8 +297,9 @@ int main(int argc, char *argv[])
     std::queue<string> unsolved_list;
 
 	Json::Value* result_root = new Json::Value();
+	
+	readNetParam();
     CurlClient::globalInit();
-
     thread_param post_thread_param;
     post_thread_param.root = result_root;
     post_thread_param.mutex = &result_mutex;
@@ -197,9 +307,10 @@ int main(int argc, char *argv[])
     pthread_create(&post_thread_id, NULL, post_result, (void*)&post_thread_param);
 	pthread_detach(post_thread_id);
 
-    std::string port = "7999";
+    std::string port = to_string(server_port);
 	std::shared_ptr<HttpServer> http_server = std::shared_ptr<HttpServer>(new HttpServer);
 	http_server->Init(port);
+	
 	// add handler
 	http_server->AddHandler("/api/start_signal", handle_signal);
 	http_server->AddHandler("/api/result", handle_result);
@@ -215,14 +326,19 @@ int main(int argc, char *argv[])
     camera.applyParam();
 
     detector.setParam();
+	detector.setCameraPtr(&camera);
+
+	
 
 	// 发送开采命令
-    int ret = camera.start();
+	int ret = 0;
+    ret = camera.start();
     if(ret != 0) printf("[WARN] failed to start camera");
 
     ret = detector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
+	// std::cout << "test file dir: " << isDirExist("") << std::endl;
     printf("====================Menu================\n");
     printf("[X or x]:Exit\n");
     printf("[S or s]:Send softtrigger command\n");
@@ -239,10 +355,12 @@ int main(int argc, char *argv[])
             case 'X':
             case 'x':
                 run = false;
+				detector.stopThread();
+				std::cout<<"camera stop status: "<<camera.stop()<<std::endl;
                 break;
             case 'c':
             case 'C':
-                unsolved_list.push("print_1_0.ppm");
+                unsolved_list.push("print_1_0_test.ppm");
                 break;
             //发送一次软触发命令
             case 'S':

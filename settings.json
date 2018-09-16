@@ -41,5 +41,14 @@
             // 拍摄图像保存路径
             "image directory": "../images/test/"
         }
+    },
+    // 通信参数
+    "communication":{
+        // 本地client端
+        "client_host":"127.0.0.1",
+        // server port
+        "server_port":7999,
+        // client port
+        "client_port":7999
     }
 }

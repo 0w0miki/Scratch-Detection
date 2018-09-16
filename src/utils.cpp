@@ -206,7 +206,6 @@ int readBatchFile(std::string filename,
                         batch_origin_list.push_back(root["printwork"][i]["pictureLink"].asString());
                         std::string work_name = "print_";
                         work_name.append(to_string(work_id));
-                        work_name.append("_");
                         work_name_list.push_back(work_name);
                         work_count_list.push_back(work_count);
                     }else{
@@ -264,4 +263,18 @@ void SplitString(const std::string& s, std::vector<std::string>& v, const std::s
     }
     if(pos1 != s.length())
         v.push_back(s.substr(pos1));
+}
+
+/**
+ * @brief           检验文件夹是否存在
+ * 
+ * @param dir_path  文件夹路径
+ * @return int      1-存在, -1不存在
+ */
+int isDirExist(const std::string dir_path){
+    if(dir_path.empty())
+        return -1;
+    if(NULL == opendir(dir_path.c_str()))
+        return -1;
+    return 1;
 }

@@ -71,7 +71,7 @@ target_link_libraries(Client ${CURL_LIBRARY})
 
 # demo for camera
 add_executable(CameraDemo 
-    src/camera_demo.cpp
+    test/camera_demo.cpp
 )
 target_link_libraries(CameraDemo
     ${CAMERALIBS}
@@ -80,7 +80,7 @@ target_link_libraries(CameraDemo
 
 # demo for detector
 add_executable(DetectDemo 
-    src/detect_demo.cpp
+    test/detect_demo.cpp
 )
 target_link_libraries(DetectDemo
     Threads::Threads
@@ -101,7 +101,7 @@ target_link_libraries(Demo
 )
 
 add_executable(FileReadDemo
-    src/file_demo.cpp
+    test/file_demo.cpp
     src/Camera.cpp
     src/CameraUtils.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
@@ -111,7 +111,7 @@ target_link_libraries(FileReadDemo
 )
 
 add_executable(url_demo
-    src/curl_demo.cpp
+    test/curl_demo.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(url_demo
@@ -134,7 +134,7 @@ add_executable(client_demo
 )
 
 add_executable(server_demo
-    src/server_demo.cpp
+    test/server_demo.cpp
     src/http_server.cpp
     src/utils.cpp
     src/client.cpp

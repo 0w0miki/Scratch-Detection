@@ -169,8 +169,8 @@ int curl_upload_file()
 int curl_download_file()
 {
 	int nCode = -1;
-	std::string sIP = "127.0.0.1";
-	unsigned int nPort = 7999;
+	std::string sIP = "img.aiezu.com/";
+	unsigned int nPort = 80;
 	std::string sUser = "";   //可为空
 	std::string sPwd = "";	  //可为空	
  
@@ -194,12 +194,12 @@ int curl_download_file()
     }
 	
 	//设置路径
-	std::string sUrlPath = "";
+	std::string sUrlPath = "avatar/000/00/00/01_avatar_mid.jpg";
 	pCurlClient->setUrlPath(sUrlPath);
 	
 	//下载文件名
-	std::string sFileName = "./test.html";
-    int nFormat = FORMAT_JSON;
+	std::string sFileName = "./test.jpg";
+    int nFormat = 0;
 	nCode = pCurlClient->downloadFile(sFileName, nFormat);
 	printf("%d\n", nCode);
 		
@@ -538,7 +538,8 @@ int main()
                 // char *url = "http://127.0.0.1:7999/api/result";
                 // char *filename = "/home/miki0w0/gree/results.json";
                 // http_post_file(url,filename);
-                curl_upload_file();
+                // curl_upload_file();
+                curl_download_file();
                 break;
             }
             case 'q':
@@ -577,7 +578,7 @@ int main()
                         std::cout<<root.toStyledString()<<std::endl;
                         int ret = http_post_json(url, root);
                         switch(ret){
-                            case 1:
+                            case 0:
                                 // 收到
                                 std::cout << "result is received." << std::endl;
                                 break;

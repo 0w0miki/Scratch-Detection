@@ -69,7 +69,7 @@ void HttpServer::RemoveHandler(const std::string &url)
 
 void HttpServer::SendRsp(mg_connection *connection, std::string rsp)
 {
-	printf("================= header test ==================\n");
+	printf("================= send response ==================\n");
 	// 必须先发送header
 	mg_printf(connection, "%s", "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
 	// 以json形式返回

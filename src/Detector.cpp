@@ -161,6 +161,11 @@ Detector::Detector(
 Detector::~Detector()
 {
     start_detect_ = false;
+    if(result_mutex_ != NULL){
+        pthread_mutex_unlock(result_mutex_);
+        result_mutex_ = NULL;
+    }
+    
     result_log_.close();
 }
 
@@ -803,6 +808,8 @@ int Detector::checkBigProblem(){
 void Detector::setOriginImg(string filename){
     string file = template_dir_ + filename;
     template_img_ = cv::imread(file,0);
+    cout<<file<<endl;
+    
     if(input_type_ == DETECTA4){
         template_label_ = template_img_;
     }else if(input_type_ == DETECTEACH){
@@ -890,6 +897,10 @@ void Detector::saveImg(string pre, cv::Mat img){
     string suffix = ".jpg";
     string Output_name = Output_Path + pre + to_string(id_) + suffix; 
     imwrite(Output_name, img);
+}
+
+void Detector::setCameraPtr(Camera* camera){
+    camera_ = camera;
 }
 
 int Detector::launchThread(){
@@ -991,13 +1002,23 @@ void Detector::ProcDetect(){
         if(unsolved_list_->empty()){
             // 没有待处理文件
             pthread_mutex_unlock(mutex_);
-            continue; 
+            // sleep for 2ms
+            struct timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 2 * 1000;
+            select(0,NULL,NULL,NULL,&tv);
+            continue;
         }
         string unsolved_filename = unsolved_list_->front();
         pthread_mutex_unlock(mutex_);
         cout<<"unsolved filename:"<<unsolved_filename<<endl;
+        std::vector<std::string> split_name;
+        SplitString(unsolved_filename, split_name, "_");
         if(!batch_origin_list_->empty() && false == origin_flag){
-            std::string origin_name = batch_origin_list_->front();
+            
+            std::string origin_name = split_name[1];
+            origin_name.append("/");
+            origin_name.append(batch_origin_list_->front());
             setOriginImg(origin_name);
             printf("<----------- set new origin image ----------->\n");
             origin_flag = true;
@@ -1031,6 +1052,7 @@ void Detector::ProcDetect(){
         }
         if(!work_count_list_->empty() && id_ > work_count_list_->front()){
             id_ = 1;
+            std::cout << "detection pop" << std::endl;
             work_count_list_->pop_front();
             work_name_list_->pop_front();
             if(camera_ != NULL)
@@ -1043,10 +1065,10 @@ void Detector::ProcDetect(){
 
         // 发送消息
 
-        // sleep for 20ms
+        // sleep for 2ms
         struct timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 20 * 1000;
+        tv.tv_usec = 500;
         select(0,NULL,NULL,NULL,&tv);
     }
 }
@@ -1103,4 +1125,9 @@ void Detector::writeResJson(int8_t result){
     // resFile.close();
 
     // return 0;
+}
+
+int Detector::stopThread(){
+    start_detect_ = false;
+    pthread_cancel(this->detection_thread_);
 }

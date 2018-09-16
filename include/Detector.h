@@ -118,7 +118,9 @@ public:
     void setDesiredSize(cv::Point2i desired_size);
     void setImg(string filename);
     void setImg(Mat img);
+    void setCameraPtr(Camera* camera);
     void setThresh();
+    int stopThread();
     int sendMsg();
     int64_t getCount();
 };

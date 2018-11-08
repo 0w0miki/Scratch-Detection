@@ -13,6 +13,8 @@ g_acquire_thread_(0),
 g_get_image_(false),
 g_frameinfo_data_(NULL),
 g_frameinfo_datasize_(0),
+triger_line_(2),
+triger_edge_(1),
 file_dir_("../images/test/")
 {
     mutex_ = new pthread_mutex_t;
@@ -34,13 +36,20 @@ g_acquire_thread_(0),
 g_get_image_(false),
 g_frameinfo_data_(NULL),
 g_frameinfo_datasize_(0),
+triger_line_(2),
+triger_edge_(1),
 file_dir_("../images/test/")
 {
     mutex_ = mutex;
     unsolved_list_ = unsolved_list;
 }
 
-Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<int64_t>* work_count_list,std::vector<std::vector<ROI>>* batch_ROI_list):
+Camera::Camera( pthread_mutex_t* mutex, 
+                std::queue<std::string>* unsolved_list, 
+                std::deque<int64_t>* work_count_list,
+                std::vector<std::vector<ROI>>* batch_ROI_list,
+                int64_t pixel_format
+                ):
 cam_id_(1),
 fake_ptr_(0),
 count_(1),
@@ -54,6 +63,8 @@ g_acquire_thread_(0),
 g_get_image_(false),
 g_frameinfo_data_(NULL),
 g_frameinfo_datasize_(0),
+triger_line_(2),
+triger_edge_(1),
 file_dir_("../images/test/")
 {
     mutex_ = mutex;
@@ -62,7 +73,12 @@ file_dir_("../images/test/")
     batch_ROI_list_ = batch_ROI_list;
 }
 
-Camera::Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<std::string>* work_name_list, std::deque<int64_t>* work_count_list):
+Camera::Camera( pthread_mutex_t* mutex, 
+                std::queue<std::string>* unsolved_list, 
+                std::deque<std::string>* work_name_list, 
+                std::deque<int64_t>* work_count_list,
+                int64_t pixel_format
+                ):
 cam_id_(1),
 fake_ptr_(0),
 count_(1),
@@ -70,12 +86,14 @@ g_device_(NULL),
 g_frame_data_({0}),
 g_raw8_buffer_(NULL),
 g_rgb_frame_data_(NULL),
-g_pixel_format_(GX_PIXEL_FORMAT_BAYER_GR8),
-g_color_filter_(GX_COLOR_FILTER_NONE),
+g_pixel_format_(pixel_format),
+g_color_filter_(GX_COLOR_FILTER_BAYER_RG),
 g_acquire_thread_(0),
 g_get_image_(false),
 g_frameinfo_data_(NULL),
 g_frameinfo_datasize_(0),
+triger_line_(2),
+triger_edge_(1),
 file_dir_("../images/test/")
 {
     mutex_ = mutex;
@@ -274,6 +292,9 @@ void Camera::ProcGetImage(){
                     SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
                 }
                 printf("time of process %ld us\n", g_time_counter_.End());
+            // }else{
+            //     SaveMono(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
+            //     printf("time of process %ld us\n", g_time_counter_.End());
             }
         }
     }
@@ -356,7 +377,7 @@ int Camera::init(){
     {
         GetErrorString(status);
     }
-        
+  
     //相机采集图像为彩色还是黑白
     status = GXGetEnum(g_device_, GX_ENUM_PIXEL_COLOR_FILTER, &g_color_filter_);
     if(status != GX_STATUS_SUCCESS)
@@ -486,8 +507,8 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
         if(push_unsolved_list){
             pthread_mutex_lock(mutex_);
             // test
-            unsolved_list_->push("print_1_0_test.ppm");
-            // unsolved_list_->push(name);
+            // unsolved_list_->push("print_1_0_test.ppm");
+            unsolved_list_->push(name);
             pthread_mutex_unlock(mutex_);
         }
         printf("<Save %s success>\n", name);
@@ -505,6 +526,59 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
         }
     }
 }
+
+
+void Camera::SaveMono(void *image_buffer, size_t width, size_t height){
+    char name[64] = {0};
+    char filename[64];
+    FILE* ff = NULL;
+    std::string work_name;
+    bool push_unsolved_list = true;
+    printf("[===DEBUG===] fake_ptr is: %d, size: %d\n", fake_ptr_, work_name_list_->size());
+    if(!work_name_list_->empty() && fake_ptr_ < work_name_list_->size()){
+        work_name = work_name_list_->at(fake_ptr_);
+    }else{
+        // 等detection pop掉
+        printf("[WARN] List out of range!!! ptr:%d, size:%d\n",fake_ptr_,work_name_list_->size());
+        work_name = "unlisted_";
+        push_unsolved_list = false;
+    }
+    if(work_name.front() == 'r')
+        // 重打
+        sprintf(name, "%s.ppm", work_name.c_str());
+    else
+        sprintf(name, "%s_%ld.ppm", work_name.c_str(), count_);
+    sprintf(filename,"%s%s",file_dir_.data(),name);
+    ff=fopen(filename,"wb");
+    if(ff != NULL)
+    {
+        fprintf(ff, "P6\n" "%zu %zu\n255\n", width, height);
+        fwrite(image_buffer, 1, width * height, ff);
+        fclose(ff);
+        ff = NULL;
+        if(push_unsolved_list){
+            pthread_mutex_lock(mutex_);
+            // test
+            // unsolved_list_->push("print_1_0_test.ppm");
+            unsolved_list_->push(name);
+            pthread_mutex_unlock(mutex_);
+        }
+        printf("<Save %s success>\n", name);
+    }
+    if(!work_count_list_->empty() && fake_ptr_ < work_count_list_->size()){
+        count_++;
+        if(count_ > work_count_list_->at(fake_ptr_)){
+            if(!work_count_list_->empty()){
+                fake_ptr_++;
+                count_ = 1;
+            }else{
+                fake_ptr_ = 0;
+                printf("[WARN] work end!");
+            }
+        }
+    }
+}
+
 
 //-------------------------------------------------
 /**
@@ -601,9 +675,9 @@ int Camera::setTrigger(int type){
         status = GXCloseLib();
         return 0;
     }
-	
+
     switch(type){
-        case 0:
+        case SOFT_TRIGGER:
             //设置触发源为软触发
             status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_SOFTWARE);
             if(status != GX_STATUS_SUCCESS)
@@ -618,7 +692,64 @@ int Camera::setTrigger(int type){
                 return 0;
             }
             break;
-        case 1:
+        case HARD_TRIGGER:
+            printf("set triger: hardware ");
+            //设置触发源为外触发
+            switch(triger_line_){
+                case TRIGER_LINE0:
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE0);
+                    printf("line0");
+                    break;
+                case TRIGER_LINE1:
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE1);
+                    printf("line1");
+                    break;
+                case TRIGER_LINE2:
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE2);
+                    printf("line2");
+                    break;
+                case TRIGER_LINE3:
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE3);
+                    printf("line3");
+                    break;
+            }
+            if(status != GX_STATUS_SUCCESS)
+            {
+                GetErrorString(status);
+                status = GXCloseDevice(g_device_);
+                if(g_device_ != NULL)
+                {
+                    g_device_ = NULL;
+                }
+                status = GXCloseLib();
+                return 0;
+            }
+            switch(triger_edge_){
+                case TRIGER_FALLING:
+                    //设置触发激活方式为下降沿
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_FALLINGEDGE);
+                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_FALLING, 1000);
+                    printf(" fall");
+                    break;
+                case TRIGER_RISING:
+                    //设置触发激活方式为上升沿
+                    status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_RISINGEDGE);
+                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_RAISING, 1000);
+                    printf(" rise");
+                    break;
+            }
+            printf("\n");
+            if(status != GX_STATUS_SUCCESS)
+            {
+                GetErrorString(status);
+                status = GXCloseDevice(g_device_);
+                if(g_device_ != NULL)
+                {
+                    g_device_ = NULL;
+                }
+                status = GXCloseLib();
+                return 0;
+            }
             break;
     }
 
@@ -784,7 +915,9 @@ int Camera::applyParam(){
             green_balance_ = root["camera"]["Green Balance ratio"].empty() ?  green_balance_ : root["camera"]["Green Balance ratio"].asDouble();
             blue_balance_  = root["camera"]["Blue Balance ratio"].empty()  ?  blue_balance_  : root["camera"]["Blue Balance ratio"].asDouble();
             gain_value_    = root["camera"]["Gain"].empty()                ?  gain_value_    : root["camera"]["Gain"].asDouble();
-            cam_id_        = root["camera"]["id"].empty()                  ?  cam_id_    : root["camera"]["id"].asInt();
+            cam_id_        = root["camera"]["id"].empty()                  ?  cam_id_        : root["camera"]["id"].asInt();
+            triger_line_   = root["camera"]["trigger"]["source"].empty()    ?  triger_line_   : root["camera"]["trigger"]["source"].asInt();
+            triger_edge_   = root["camera"]["trigger"]["edge"].empty()      ?  triger_edge_   : root["camera"]["trigger"]["edge"].asInt();
             file_dir_      = root["detection"]["file"]["image directory"].empty() ? file_dir_ : root["detection"]["file"]["image directory"].asString();
         }else{
             std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
@@ -808,6 +941,8 @@ int Camera::applyParam(){
     ret = setGain(gain_value_);
     if(ret != 0) printf("[WARN] failed to set gain");
 
+    printf("set trigger line: %d\n", triger_line_);
+    printf("set trigger edge: %d\n", triger_edge_);
     return 0;
 }
 

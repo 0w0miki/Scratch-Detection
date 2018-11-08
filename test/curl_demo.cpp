@@ -563,6 +563,7 @@ int main()
             case 'W':
             {
                 char *url = "http://127.0.0.1:7999/api/start";
+                // char *url = "http://192.168.31.18:7999/api/start";
                 char *filename = "/home/miki0w0/gree/batch_info.json";
                 std::ifstream batch_file;
                 batch_file.open(filename , std::ios::in);

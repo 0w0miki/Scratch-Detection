@@ -1,1 +1,17 @@
-[{"batch id":1,"image state":[{"id":1},{"id":2}]}]
+[{"faultType" : 5,"printJobID" : 3,"printWorkNumber" : 1}]
+
+got request: POST /api/start HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+cache-control: no-cache
+Postman-Token: d67ea8a9-0d37-432a-9d1f-d36ccfff4681
+User-Agent: PostmanRuntime/7.1.5
+Accept: */*
+Host: 192.168.8.11:7999
+accept-encoding: gzip, deflate
+content-length: 121
+Connection: keep-alive
+
+printJobID%20=1&printQuantity%20=1&pictureLink=http%3A%2F%2F192.168.8.10%2Fgreeog%2F&printRedoFlag=0&printWorkNumber%20=1
+handle start
+url: /api/start
+body: printJobID%20=1&printQuantity%20=1&pictureLink=http%3A%2F%2F192.168.8.10%2Fgreeog%2F&printRedoFlag=0&printWorkNumber%20=1

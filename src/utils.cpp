@@ -249,6 +249,13 @@ int readBatchFile(std::string filename,
     return 0;
 }
 
+
+/** 
+ * @brief           分词
+ * 
+ * @param           vector<>v 结果
+ * @param           string c  分割字符
+ */
 void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c)
 {
     std::string::size_type pos1, pos2;
@@ -277,4 +284,16 @@ int isDirExist(const std::string dir_path){
     if(NULL == opendir(dir_path.c_str()))
         return -1;
     return 1;
+}
+
+/**
+ * @brief           等待一段时间
+ * 
+ * @param           时长单位ns 
+ */
+void wait(int time_ns){
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = time_ns * 1000;
+    select(0,NULL,NULL,NULL,&tv);
 }

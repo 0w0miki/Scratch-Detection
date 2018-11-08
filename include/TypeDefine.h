@@ -1,0 +1,5 @@
+#define CAM_OPEN_ERROR          -1001
+#define DETECTOR_START_ERROR    -1002
+#define SERIAL485_OPEN_ERROR    -1003
+#define CANNOT_OPEN_IMG         -2001
+#define CANNOT_FIND_PAPER       -2002

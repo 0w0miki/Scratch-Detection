@@ -5,8 +5,8 @@
             "printRedoFlag": false,
             "pictureLink":
             [
-                "template.JPG",
-                "template.JPG"
+                "2/template.JPG",
+                "2/template.JPG"
             ]
         },
         {
@@ -15,7 +15,7 @@
             "printRedoFlag": true,
             "pictureLink":
             [
-                "template.JPG"
+                "2/template.JPG"
             ],
             "printWorkNumber":[37]
         }

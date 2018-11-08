@@ -485,16 +485,16 @@ int CurlClient::sendResult(std::string &sRec){
         JSONCPP_STRING errs;
         if (parseFromStream(builder, ss, &root, &errs)){
             if(!root.empty()){
-                if(root["statusCode"].empty()){
-                    printf("[ERROR] no statusCode term");
-                }else if(root["statusCode"].isInt()){
-                    int response = root["statusCode"].asInt();
-                    if(response == 1){
+                if(root["StatusCode"].empty()){
+                    printf("[ERROR] no StatusCode term");
+                }else if(root["StatusCode"].isString()){
+                    std::string response = root["StatusCode"].asString();
+                    if(!response.empty()){
                         // 收到请求
                         result_root_->clear();
                     }
                 }else{
-                    printf("[ERROR] response is not int");
+                    printf("[ERROR] response is not string");
                 }
             }else{
                 printf("[ERROR] nothing in response");

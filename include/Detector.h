@@ -8,11 +8,23 @@
 #include <opencv2/opencv.hpp>
 #include <queue>
 #include "utils.h"
+#include "Serial.h"
 #include "Camera.h"
 #include "json/json.h"
 
-#define DETECTA4 0
-#define DETECTEACH 1
+// enum detectType{
+//     DETECTA4 = 1,
+//     DETECTEACH = 0xfffe,
+//     SECDETECT = 2,
+//     FIRSTDETECT = 0xfffd
+// };
+
+// #define DETECTEACH 0
+#define DETECTA4 1
+#define SECDETECT 2
+
+#define STATE_OK 0
+#define FINDLINEERR -1
 
 class Detector
 {
@@ -84,8 +96,11 @@ private:
     // 相机指针
     Camera* camera_;
 
+    // 串口指针
+    Serial* serial_;
+
 protected:
-    void findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
+    int findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
     cv::Mat getLabelImg(Mat img);
     void getROI(cv::Mat image, cv::Mat &dst);
     cv::Mat LOG(Mat img);
@@ -107,18 +122,34 @@ protected:
 public:
     Detector();
     Detector(pthread_mutex_t* mutex, std::queue<string>* list);
-    Detector(pthread_mutex_t* mutex, std::queue<string>* list, std::deque<string>* batch_origin_list, std::deque<int64_t>* batch_count_list, std::vector<cv::Point2i>* desired_size_list);
-    Detector(pthread_mutex_t* mutex, pthread_mutex_t* result_mutex,Json::Value* root, std::queue<string>* list, std::deque<std::string>* work_name_list_, std::deque<int64_t>* work_count_list_, std::deque<string>* batch_origin_list, std::deque<int64_t>* batch_count_list);
+    Detector(pthread_mutex_t* mutex, 
+            std::queue<string>* list, 
+            std::deque<string>* batch_origin_list, 
+            std::deque<int64_t>* batch_count_list, 
+            std::vector<cv::Point2i>* desired_size_list, 
+            pthread_t threadId = 2);
+
+    Detector(pthread_mutex_t* mutex, 
+            pthread_mutex_t* result_mutex, 
+            Json::Value* root, 
+            std::queue<string>* list, 
+            std::deque<std::string>* work_name_list_, 
+            std::deque<int64_t>* work_count_list_, 
+            std::deque<string>* batch_origin_list, 
+            std::deque<int64_t>* batch_count_list, 
+            int detectionId = 0, 
+            pthread_t threadId = 2);
     ~Detector();
     int setParam();
     int detect();
     int launchThread();
-    void setOriginImg(string filename);
-    void setOriginImg(Mat img);
+    int setOriginImg(string filename);
+    int setOriginImg(Mat img);
     void setDesiredSize(cv::Point2i desired_size);
-    void setImg(string filename);
-    void setImg(Mat img);
+    int setImg(string filename);
+    int setImg(Mat img);
     void setCameraPtr(Camera* camera);
+    void setSerialPtr(Serial* serial);
     void setThresh();
     int stopThread();
     int sendMsg();

@@ -12,7 +12,14 @@
         // 增益，默认20.00
         "Gain":20.00,
         // 相机编号，默认1
-        "id": 1
+        "id": 1,
+        // 触发相关菜蔬
+        "trigger":{
+            // 触发源: 数值n表示用line n触发，默认2
+            "source": 2,
+            // 触发方式： 0位下降沿 1位上升沿，默认为1
+            "edge": 0
+        }
     },
     // 辨识参数
     "detection":{
@@ -31,8 +38,8 @@
             "save result log": true,
             // 显示所用时间
             "show time": true,
-            // 0-检测A4纸 1-检测单张
-            "detect each": 0
+            // 0-检测单张 1-检测A4纸
+            "detect each": 1
         },
         // 文件路径
         "file":{
@@ -44,10 +51,12 @@
     },
     // 通信参数
     "communication":{
-        // 本地client端
+        // 服务器端host
         "client_host":"127.0.0.1",
         // server port
         "server_port":7999,
+        // result url
+        // "result_url":"/api/Print/addErrorReport",
         // client port
         "client_port":7999
     }

@@ -68,7 +68,8 @@ Detector::Detector(
     std::queue<string>* list, 
     std::deque<string>* batch_origin_list, 
     std::deque<int64_t>* batch_count_list, 
-    std::vector<cv::Point2i>* desired_size_list
+    std::vector<cv::Point2i>* desired_size_list,
+    pthread_t threadId
 ):
     bin_thresh_(40),
     k_pos_(0.01),
@@ -79,7 +80,7 @@ Detector::Detector(
     save_img_switch_(true),
     show_time_switch_(true),
     origin_flag(false),
-    detection_thread_(2),
+    detection_thread_(threadId),
     camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
@@ -110,13 +111,15 @@ Detector::Detector(
 
 Detector::Detector(
     pthread_mutex_t* mutex, 
-    pthread_mutex_t* result_mutex, 
+    pthread_mutex_t* result_mutex,
     Json::Value* root, 
     std::queue<string>* list, 
     std::deque<std::string>* work_name_list, 
     std::deque<int64_t>* work_count_list, 
     std::deque<string>* batch_origin_list, 
-    std::deque<int64_t>* batch_count_list
+    std::deque<int64_t>* batch_count_list,
+    int detectionId,
+    pthread_t threadId
 ):
     bin_thresh_(40),
     k_pos_(0.01),
@@ -127,7 +130,7 @@ Detector::Detector(
     save_img_switch_(true),
     show_time_switch_(true),
     origin_flag(false),
-    detection_thread_(2),
+    detection_thread_(threadId),
     camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
@@ -155,7 +158,7 @@ Detector::Detector(
     batch_origin_list_ = batch_origin_list;
     batch_count_list_ = batch_count_list;
     
-    input_type_ = DETECTA4;
+    input_type_ = DETECTA4 | detectionId;
 }
 
 Detector::~Detector()
@@ -178,7 +181,7 @@ Detector::~Detector()
 \return void
 */ 
 //-------------------------------------------------
-void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
+int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
     cv::Mat image_bin;
     cv::Mat image_bin2;
     // 二值化
@@ -191,12 +194,13 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     // namedWindow("gray",CV_WINDOW_NORMAL);
     // imshow("gray", image_gray);
     // waitKey(0);
-    
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     cv::findContours(image_bin, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
         // iterate through all levels, and draw contours in random color
     int index = 0;
+    if(hierarchy.empty())
+        return -1;
     for (; index>=0; index = hierarchy[index][0]) {
         cv::Scalar color(255);
         // for opencv 2
@@ -218,6 +222,8 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     for(i=0;i<4;i++){
         cv::Vec4f line;
         findLinePoint(lines[i],image_bin,i,2000,5);
+        if(lines[i].size()<4)
+            return FINDLINEERR;
         // std::cout << lines[0]<<"," <<lines[1]<<"," <<lines[2]<<"," <<lines[3]<< std::endl;
         // 拟合直线
         cv::fitLine(lines[i], line, CV_DIST_HUBER, 0, 0.01, 0.01);
@@ -271,6 +277,7 @@ void Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::P
     // std::cout <<"transform mat"<< transform << std::endl;
     // 然后变换
     cv::warpPerspective(image_gray,det_img,transform,size);
+    return STATE_OK;
     // imshow("final", det_img);
     // waitKey();
 }
@@ -802,22 +809,27 @@ int Detector::checkBigProblem(){
 /**
 \brief 设置原图
 \param [in] filename 地址
-\return void 
+\return int 
 */ 
 //-------------------------------------------------
-void Detector::setOriginImg(string filename){
+int Detector::setOriginImg(string filename){
     string file = template_dir_ + filename;
     template_img_ = cv::imread(file,0);
     cout<<file<<endl;
-    
-    if(input_type_ == DETECTA4){
+    if(!template_img_.data){
+        cout<<"[ERROR] No source image!!!"<<endl;
+        return -1;
+    }
+
+    if(input_type_ & DETECTA4){
         template_label_ = template_img_;
-    }else if(input_type_ == DETECTEACH){
+    }else{
         template_label_ = getLabelImg(template_img_);
     }
     // cv::cvtColor(template_img_,template_label_,CV_BGR2GRAY);
     setThresh();
     count_ = 1;
+    return 0;
 }
 
 //-------------------------------------------------
@@ -827,15 +839,20 @@ void Detector::setOriginImg(string filename){
 \return void 
 */ 
 //-------------------------------------------------
-void Detector::setOriginImg(cv::Mat img){
+int Detector::setOriginImg(cv::Mat img){
+    if(!img.data){
+        cout<<"[ERROR] No source image!!!"<<endl;
+        return -1;
+    }
     template_img_ = img;
-    if(input_type_ == DETECTA4){
+    if(input_type_ & DETECTA4){
         template_label_ = template_img_;
-    }else if(input_type_ == DETECTEACH){
+    }else{
         template_label_ = getLabelImg(template_img_);
     }
     setThresh();
     count_ = 1;
+    return 0;
 }
 
 //-------------------------------------------------
@@ -845,21 +862,26 @@ void Detector::setOriginImg(cv::Mat img){
 \return void 
 */ 
 //-------------------------------------------------
-void Detector::setImg(string filename){
+int Detector::setImg(string filename){
     
     string file = img_dir_ + filename;
     Mat src = cv::imread(file,0);
+    if(!src.data){
+        cout<<"[ERROR] No source image!!!"<<endl;
+        return -1;
+    }
     Mat img;
     transpose(src, img);
     flip(img,img,0);
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    findLabel(img, img_gray_, img_points_); 
+    if(STATE_OK != findLabel(img, img_gray_, img_points_))
+        return -2;
     label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     // label_ = getLabelImg(img_gray_);
     // imshow("img",img_gray_);
     // waitKey();
     adjustSize(label_, template_label_);
-    
+    return STATE_OK;
     // imshow("label_",label_);
     // waitKey();
     // getROI(img_gray_, label_);
@@ -869,16 +891,22 @@ void Detector::setImg(string filename){
 /**
 \brief 设置待测图像
 \param [in] img 拍到的ROI图像
-\return void 
+\return int 
 */ 
 //-------------------------------------------------
-void Detector::setImg(cv::Mat img){
+int Detector::setImg(cv::Mat img){
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    findLabel(img, img_gray_, img_points_);
+    if(!img_gray_.data){
+        cout<<"[ERROR] No source image!!!"<<endl;
+        return -1;
+    }
+    if(STATE_OK != findLabel(img, img_gray_, img_points_))
+        return -2;
     
     //label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     label_ = getLabelImg(img_gray_);
     adjustSize(label_, template_label_);
+    return STATE_OK;
     // imshow("label_",label_);
     // waitKey();
     // getROI(img_gray_, label_);
@@ -901,6 +929,10 @@ void Detector::saveImg(string pre, cv::Mat img){
 
 void Detector::setCameraPtr(Camera* camera){
     camera_ = camera;
+}
+
+void Detector::setSerialPtr(Serial* serial){
+    serial_ = serial;
 }
 
 int Detector::launchThread(){
@@ -935,7 +967,7 @@ int Detector::setParam(){
             show_time_switch_ = root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
             template_dir_ = root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
             img_dir_ = root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
-            input_type_ = root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
+            input_type_ |= root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }
@@ -968,10 +1000,16 @@ int Detector::detect(){
     if(work_name_list_->empty()){
         return -10;
     }
-    int size_res = checkSize();
-    int pos_res = checkPos();
-    int bigpro_res = checkBigProblem();
-    int scratch_res = checkScratch();
+    int size_res = 0, pos_res = 0, bigpro_res = 0, scratch_res = 0;
+    if(input_type_ & SECDETECT){
+        size_res = checkSize();
+        pos_res = checkPos();
+        bigpro_res = checkBigProblem();
+        scratch_res = checkScratch();
+    }else{
+        bigpro_res = checkBigProblem();
+        scratch_res = checkScratch();
+    }
     
     int8_t result = 0;
     if(pos_res == 1){
@@ -988,10 +1026,13 @@ int Detector::detect(){
     }
     // 保存json文件
     if(result != 0){
+        char buff[10]={0};
+        buff[0] = 0xAA; buff[1] = 0x01;
+        buff[2] = (char)(result & 0x00ff);
+        std::string msg(buff);
+        serial_->sendMsg(msg);
         writeResJson(result);
     }
-    id_++;
-    count_++;
     return 0;
 }
 
@@ -1002,44 +1043,60 @@ void Detector::ProcDetect(){
         if(unsolved_list_->empty()){
             // 没有待处理文件
             pthread_mutex_unlock(mutex_);
-            // sleep for 2ms
-            struct timeval tv;
-            tv.tv_sec = 0;
-            tv.tv_usec = 2 * 1000;
-            select(0,NULL,NULL,NULL,&tv);
+            // sleep for 0.5ms
+            wait(500);
             continue;
         }
+        auto t_bef = chrono::system_clock::now();
         string unsolved_filename = unsolved_list_->front();
         pthread_mutex_unlock(mutex_);
         cout<<"unsolved filename:"<<unsolved_filename<<endl;
         std::vector<std::string> split_name;
         SplitString(unsolved_filename, split_name, "_");
         if(!batch_origin_list_->empty() && false == origin_flag){
-            
-            std::string origin_name = split_name[1];
-            origin_name.append("/");
-            origin_name.append(batch_origin_list_->front());
-            setOriginImg(origin_name);
-            printf("<----------- set new origin image ----------->\n");
-            origin_flag = true;
+            // 原图列表非空且原图还没设置
+            // std::string origin_name = split_name[1];
+            // origin_name.append("/");
+            std::string origin_name = batch_origin_list_->front();
+            // origin_name.append(batch_origin_list_->front());
+            if(setOriginImg(origin_name)){
+                printf("<----------- set new origin image ----------->\n");
+                origin_flag = true;
+            }
         }
-        setImg(unsolved_filename);
-        int ret = detect();
-        if(ret != 0){
 
+        bool img_setted = true;
+        // 设置待处理图像
+        if(STATE_OK != setImg(unsolved_filename))
+            img_setted = false;
+        else{
+            // 检测
+            int ret = detect();
+            if(ret != 0){
+
+            }
         }
         
+        // 递增计数器
+        id_++;
+        count_++;
+        
+        // 出队列
         if(!batch_count_list_->empty() && count_ > batch_count_list_->front()){
+            // 队列非空 且 当前原图已经全都做完            
             batch_origin_list_->pop_front();
             batch_count_list_->pop_front();
             if(!batch_origin_list_->empty()){
+                // 出队后队列还有图
                 setOriginImg(batch_origin_list_->front());
             }else{
+                // 出队后队列没图 等待下一批图
                 printf("[WARN] origin image list end.\n");
                 origin_flag = false;
             }
-            
-            if(input_type_ == DETECTEACH){
+            printf("input type: %d\n",input_type_);
+            if(!(input_type_ & DETECTA4)){
+                // 当前任务是对每个标签检测
                 desired_size_iter_++;
                 cout<<(*desired_size_iter_).x<<endl;
                 if(desired_size_iter_ != desired_size_list_->end()){
@@ -1051,6 +1108,7 @@ void Detector::ProcDetect(){
             }
         }
         if(!work_count_list_->empty() && id_ > work_count_list_->front()){
+            // 当前作业非空 且 当前作业数完成 移到下个作业
             id_ = 1;
             std::cout << "detection pop" << std::endl;
             work_count_list_->pop_front();
@@ -1058,18 +1116,17 @@ void Detector::ProcDetect(){
             if(camera_ != NULL)
                 camera_->popList();
         }
-
+        
+        // 未处理图像出队
         pthread_mutex_lock(mutex_);
         unsolved_list_->pop();
         pthread_mutex_unlock(mutex_);
-
-        // 发送消息
-
-        // sleep for 2ms
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 500;
-        select(0,NULL,NULL,NULL,&tv);
+        if(show_time_switch_){
+            auto t_end = chrono::system_clock::now();
+            cout<< "total time: " << chrono::duration_cast<chrono::milliseconds>(t_end-t_bef).count() << "ms\n";
+        }
+        // sleep for 0.5ms
+        wait(500);
     }
 }
 
@@ -1115,7 +1172,8 @@ void Detector::writeResJson(int8_t result){
     batch_item["faultType"] = result;
     
     pthread_mutex_unlock(result_mutex_);
-    result_root_->append(batch_item);
+    // result_root_->append(batch_item);
+    result_root_->copy(batch_item);
     batch_item.clear();
     std::cout << "'" << result_root_->toStyledString() << "'" << std::endl;
     pthread_mutex_unlock(result_mutex_);

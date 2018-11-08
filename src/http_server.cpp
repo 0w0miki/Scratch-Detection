@@ -73,7 +73,7 @@ void HttpServer::SendRsp(mg_connection *connection, std::string rsp)
 	// 必须先发送header
 	mg_printf(connection, "%s", "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
 	// 以json形式返回
-	mg_printf_http_chunk(connection, "{ \"statusCode\": %s }", rsp.c_str());
+	mg_printf_http_chunk(connection, "{ \"StatusCode\": %s }", rsp.c_str());
 	// 发送空白字符快，结束当前响应
 	mg_send_http_chunk(connection, "", 0);
 }

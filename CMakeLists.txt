@@ -8,9 +8,13 @@ add_compile_options(-std=c++11)
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3" )
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules)
+message(${CMAKE_MODULE_PATH})
 find_package(OpenCV 3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
+
+message(${OpenCV_LIBS})
 
 if(NOT DEFINED ENV{GENICAM_ROOT_V2_3})
     message(FATAL_ERROR "cannot find genicam root directory")
@@ -29,6 +33,7 @@ include_directories(
 link_directories(
     ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/third_party/camera/lib
+    # ${PROJECT_SOURCE_DIR}/lib
     # $ENV{GENICAM_ROOT_V2_3}/bin/Linux64_x64
     # $ENV{GENICAM_ROOT_V2_3}/bin/Linux64_x64/GenApi/Generic
 )
@@ -56,6 +61,7 @@ add_library(Detection SHARED
     src/Detector.cpp
     src/DetectUtils.cpp
     src/utils.cpp
+    src/Serial.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(Detection 
@@ -100,16 +106,6 @@ target_link_libraries(Demo
     Detection
 )
 
-add_executable(FileReadDemo
-    test/file_demo.cpp
-    src/Camera.cpp
-    src/CameraUtils.cpp
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(FileReadDemo
-    ${CAMERALIBS}
-)
-
 add_executable(url_demo
     test/curl_demo.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
@@ -138,6 +134,7 @@ add_executable(server_demo
     src/http_server.cpp
     src/utils.cpp
     src/client.cpp
+    src/Serial.cpp
     third_party/mongoose/mongoose.c
     third_party/jsoncpp/src/jsoncpp.cpp
 )
@@ -146,4 +143,41 @@ target_link_libraries(server_demo
     ${OpenCV_LIBS}
     Camera
     Detection
+)
+
+add_executable(color
+    src/color.cpp
+    src/http_server.cpp
+    src/utils.cpp
+    src/client.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(color
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+)
+
+add_executable(mono_demo
+    test/mono_demo.cpp
+    src/http_server.cpp
+    src/utils.cpp
+    src/client.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(mono_demo
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+)
+
+add_executable(serial_demo
+    test/serial.cpp
+    src/Serial.cpp
 )

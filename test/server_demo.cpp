@@ -8,6 +8,7 @@
 #include "Camera.h"
 #include "Detector.h"
 #include "client.h"
+#include "Serial.h"
 
 
 // 初始化HttpServer静态类成员
@@ -20,9 +21,10 @@ std::deque<int64_t> work_count_list;
 std::deque<std::string> batch_origin_list;
 std::deque<int64_t> batch_count_list;
 
-static std::string client_host;
-static int server_port;
-static int client_port;
+std::string client_host;
+int server_port;
+int client_port;
+std::string result_url;
 
 /*
 	* 下载文件
@@ -56,13 +58,12 @@ int downloadFileList(std::vector<string> file_list){
         return -1;
     }
 	
-	//设置路径
-	// TO DO: 修改请求url
-	std::string sUrlPath = "";
-	pCurlClient->setUrlPath(sUrlPath);
-	
 	//下载文件名
 	for(int i; i < file_list.size(); i++){
+		//设置路径
+		// TO DO: 修改请求url	
+		std::string sUrlPath = file_list[i];
+		pCurlClient->setUrlPath(sUrlPath);
 		std::string sFileName = "../images/templates/";
 		sFileName.append(file_list[i]);
 		int nFormat = 0;
@@ -99,7 +100,7 @@ bool handle_result(std::string url, std::string body, mg_connection *c, OnRspCal
 	// 	printf("char %x", body.c_str()[i]);
 	// }
 
-	rsp_callback(c, "1");
+	rsp_callback(c, "\"100\"");
 
 	return true;
 }
@@ -174,9 +175,9 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 						batch_count_list.push_back(1);
 						batch_origin_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
 						if(return_state == -1){
-							std::string down_filename = to_string(work_id);
-							down_filename.append("/");
-							down_filename.append(root["printwork"][i]["pictureLink"][j].asString());
+							// std::string down_filename = to_string(work_id);
+							// down_filename.append("/");
+							std::string down_filename = root["printwork"][i]["pictureLink"][j].asString();
 							download_list.push_back(down_filename);
 						}
 						std::cout << "set batch num: " << 1 << std::endl;
@@ -239,7 +240,7 @@ void* post_result(void *arg){
     }
     
     //设置路径
-    std::string sUrlPath = "/api/result";
+    std::string sUrlPath = result_url;
     pCurlClient->setUrlPath(sUrlPath);
     
     std::string res="";
@@ -249,10 +250,7 @@ void* post_result(void *arg){
             pCurlClient->sendResult(res);
             printf("%s\n", res.c_str());
         }
-		struct timeval tv;
-		tv.tv_sec = 0;
-		tv.tv_usec = 10 * 1000;
-		select(0,NULL,NULL,NULL,&tv);
+		wait(10);
     }
 }
 
@@ -276,6 +274,7 @@ int readNetParam(){
 			client_host = root["communication"]["client_host"].empty() ? "127.0.0.1" : root["communication"]["client_host"].asString();
 			server_port = root["communication"]["server_port"].empty() ? 7999 : root["communication"]["server_port"].asInt();
 			client_port = root["communication"]["client_port"].empty() ? 7999 : root["communication"]["client_port"].asInt();
+			result_url = root["communication"]["result_url"].empty() ? "/api/result" : root["communication"]["result_url"].asString();
 			cout << client_host<<":"<<client_port<<","<<server_port << endl;
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
@@ -289,14 +288,18 @@ int main(int argc, char *argv[])
 {
 	pthread_t post_thread_id = 3;
 	pthread_t server_thread_id = 4;
+	pthread_t first_thread_id = 5;
     pthread_mutex_t slv_list_mutex;
     pthread_mutex_init(&slv_list_mutex, NULL);
     pthread_mutex_t result_mutex;
     pthread_mutex_init(&result_mutex, NULL);
+	pthread_mutex_t fst_slv_list_mutex;
+	pthread_mutex_init(&fst_slv_list_mutex, NULL);
 
     std::queue<string> unsolved_list;
 
 	Json::Value* result_root = new Json::Value();
+	Json::Value* fst_result_root = new Json::Value();
 	
 	readNetParam();
     CurlClient::globalInit();
@@ -318,24 +321,56 @@ int main(int argc, char *argv[])
 	pthread_create(&server_thread_id, NULL, startServer, (void*)&http_server);
 	pthread_detach(server_thread_id);
 
-	Camera camera(&slv_list_mutex, &unsolved_list, &work_name_list, &work_count_list);
-    Detector detector(&slv_list_mutex, &result_mutex, result_root, &unsolved_list, &work_name_list, &work_count_list, &batch_origin_list, &batch_count_list);
+	Serial *result_serial = new Serial();
+	result_serial->init("/dev/ttyUSB0");
+	result_serial->setBaudRate(115200);
+	result_serial->setParity(8,1,'e');
 
-    camera.init();
-    camera.setTrigger();
-    camera.applyParam();
-
-    detector.setParam();
-	detector.setCameraPtr(&camera);
-
+	Camera camera(	&slv_list_mutex, 
+					&unsolved_list, 
+					&work_name_list, 
+					&work_count_list);
+	// Detector firstDetector(	&fst_slv_list_mutex, 
+	// 						&result_mutex, 
+	// 						fst_result_root, 
+	// 						&unsolved_list, 
+	// 						&work_name_list, 
+	// 						&work_count_list, 
+	// 						&batch_origin_list, 
+	// 						&batch_count_list, 
+	// 						first_thread_id);
+    Detector secondDetector(&slv_list_mutex, 
+							&result_mutex, 
+							result_root, 
+							&unsolved_list, 
+							&work_name_list, 
+							&work_count_list, 
+							&batch_origin_list,
+							&batch_count_list,
+							SECDETECT); 
 	
+    camera.init();
+    camera.applyParam();
+    camera.setTrigger(HARD_TRIGGER);
+
+
+	// firstDetector.setParam();
+	// firstDetector.setCameraPtr(&camera);
+	// firstDetector.setSerialPtr(result_serial);
+	
+    secondDetector.setParam();
+	secondDetector.setCameraPtr(&camera);
+	secondDetector.setSerialPtr(result_serial);
 
 	// 发送开采命令
 	int ret = 0;
     ret = camera.start();
     if(ret != 0) printf("[WARN] failed to start camera");
 
-    ret = detector.launchThread();
+	// ret = firstDetector.launchThread();
+	// if(ret != 0) printf("[WARN] failed to launch detection");
+
+    ret = secondDetector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
 	// std::cout << "test file dir: " << isDirExist("") << std::endl;
@@ -343,7 +378,7 @@ int main(int argc, char *argv[])
     printf("[X or x]:Exit\n");
     printf("[S or s]:Send softtrigger command\n");
 	printf("[C or c]:Push back unsolved list\n");
-    printf("[S or s]:Send softtrigger command\n");
+    printf("[V or v]:Send softtrigger command\n");
 
 	bool run = true;
     while(run == true)
@@ -355,12 +390,16 @@ int main(int argc, char *argv[])
             case 'X':
             case 'x':
                 run = false;
-				detector.stopThread();
+				secondDetector.stopThread();
 				std::cout<<"camera stop status: "<<camera.stop()<<std::endl;
                 break;
             case 'c':
             case 'C':
                 unsolved_list.push("print_1_0_test.ppm");
+                break;
+			case 'v':
+            case 'V':
+                unsolved_list.push("print_3_1.ppm");
                 break;
             //发送一次软触发命令
             case 'S':

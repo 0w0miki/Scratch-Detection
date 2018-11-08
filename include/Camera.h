@@ -23,6 +23,17 @@
 #define CAM_GREEN_BALANCE_CHANNEL (2)
 #define CAM_BLUE_BALANCE_CHANNEL (3)
 
+#define SOFT_TRIGGER 21
+#define HARD_TRIGGER 20
+
+#define TRIGER_LINE0 0
+#define TRIGER_LINE1 1
+#define TRIGER_LINE2 2
+#define TRIGER_LINE3 3
+
+#define TRIGER_FALLING 0
+#define TRIGER_RISING  1
+
 class Camera
 {
 
@@ -41,14 +52,14 @@ private:
 
     int cam_id_;                                                ///< 相机编号
 
-    CTimeCounter g_time_counter_;                                ///< 计时器
+    CTimeCounter g_time_counter_;                               ///< 计时器
 
-    std::vector<ROI> ROIs_;                                      ///< ROI
-    std::queue<std::string>* unsolved_list_;                     ///< 未处理图像文件名列表
-    std::deque<std::string>* work_name_list_;
-    std::deque<int64_t>* work_count_list_;
-    std::vector<std::vector<ROI>>* batch_ROI_list_;
-    std::vector<std::vector<ROI>>::iterator batch_ROI_iter_;
+    std::vector<ROI> ROIs_;                                     ///< ROI
+    std::queue<std::string>* unsolved_list_;                    ///< 未处理图像文件名列表
+    std::deque<std::string>* work_name_list_;                   ///< 作业名列表
+    std::deque<int64_t>* work_count_list_;                      ///< 作业数列表
+    std::vector<std::vector<ROI>>* batch_ROI_list_;             ///< ROI列表
+    std::vector<std::vector<ROI>>::iterator batch_ROI_iter_;    ///< ROI列表迭代器
 
     // param
     double shutter_time_;
@@ -56,6 +67,9 @@ private:
     double green_balance_;
     double blue_balance_;
     double gain_value_;
+
+    int triger_line_;
+    int triger_edge_;
 
     std::string file_dir_;
     int64_t count_;
@@ -79,14 +93,26 @@ protected:
     //保存数据到PPM文件
     void SavePPMFile(void *image_buffer, size_t width, size_t height);
 
+    // 保存黑白图
+    void SaveMono(void *image_buffer, size_t width, size_t height);
+
     // 保存ROI中的图像到PPM
     void SavePPMwithROIs(void *image_buffer, size_t width, size_t height, std::vector<ROI> ROIs);
 
 public:
     Camera();
-    Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list);
-    Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<int64_t>* work_count_list, std::vector<std::vector<ROI>>* work_ROI_list);
-    Camera(pthread_mutex_t* mutex, std::queue<std::string>* unsolved_list, std::deque<std::string>* work_name_list, std::deque<int64_t>* work_count_list);
+    Camera( pthread_mutex_t* mutex, 
+            std::queue<std::string>* unsolved_list);
+    Camera( pthread_mutex_t* mutex, 
+            std::queue<std::string>* unsolved_list, 
+            std::deque<int64_t>* work_count_list, 
+            std::vector<std::vector<ROI>>* work_ROI_list,
+            int64_t pixel_format = GX_PIXEL_FORMAT_BAYER_GR8);
+    Camera( pthread_mutex_t* mutex,
+            std::queue<std::string>* unsolved_list, 
+            std::deque<std::string>* work_name_list, 
+            std::deque<int64_t>* work_count_list,
+            int64_t pixel_format = GX_PIXEL_FORMAT_BAYER_GR8);
     ~Camera();
     
     // 相机初始化
@@ -98,7 +124,7 @@ public:
     // 停止相机
     int stop();
     // 设置触发
-    int setTrigger(int type = 0);
+    int setTrigger(int type = SOFT_TRIGGER);
     // 设置曝光
     int setShutter(double shutter_time);
     // 设置白平衡

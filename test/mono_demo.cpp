@@ -10,6 +10,7 @@
 #include "client.h"
 #include "Serial.h"
 
+
 // 初始化HttpServer静态类成员
 mg_serve_http_opts HttpServer::s_server_option;
 std::string HttpServer::s_web_dir = "../web";
@@ -20,10 +21,9 @@ std::deque<int64_t> work_count_list;
 std::deque<std::string> batch_origin_list;
 std::deque<int64_t> batch_count_list;
 
-std::string client_host;
-int server_port;
-int client_port;
-std::string result_url;
+static std::string client_host;
+static int server_port;
+static int client_port;
 
 /*
 	* 下载文件
@@ -57,17 +57,15 @@ int downloadFileList(std::vector<string> file_list){
         return -1;
     }
 	
+	//设置路径
+	// TO DO: 修改请求url
+	std::string sUrlPath = "";
+	pCurlClient->setUrlPath(sUrlPath);
+	
 	//下载文件名
-	for(auto &file_url:file_list){
-		//设置路径
-		// TO DO: 修改请求url
-		std::string sUrlPath = "/" + file_url;
-
-		cout<<"url path"<<file_url<<endl;
-
-		pCurlClient->setUrlPath(sUrlPath);
+	for(int i; i < file_list.size(); i++){
 		std::string sFileName = "../images/templates/";
-		sFileName.append(file_url);
+		sFileName.append(file_list[i]);
 		int nFormat = 0;
 		std::cout<<sFileName<<std::endl;
 		nCode = pCurlClient->downloadFile(sFileName, nFormat);
@@ -127,7 +125,7 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 				int64_t work_count = root["printwork"][i]["printQuantity"].asInt64();
 				// 判断文件夹是否存在
 				std::string origin_dir = "../images/templates/";
-				// origin_dir.append(to_string(work_id));
+				origin_dir.append(to_string(work_id));
 				if(isDirExist(origin_dir) == -1){
 					// 下载所有原图，返回错误
 					return_state = -1;
@@ -140,14 +138,6 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 					batch_origin_list.push_back(root["printwork"][i]["pictureLink"].asString());
 					if(return_state == -1)
 						download_list.push_back(root["printwork"][i]["pictureLink"].asString());
-					else{
-						std::string filename = origin_dir + root["printwork"][i]["pictureLink"].asString();
-						if(access(filename.c_str(),F_OK) == -1){
-							return_state = -3;
-							download_list.push_back(root["printwork"][i]["pictureLink"].asString());
-							std::cout << "[WARN] " << filename << " does not exist, try to download" << endl;
-						}
-					}
 					std::cout << "set batch num: " << work_count << std::endl;
 					std::cout << "set origin image url" << root["printwork"][i]["pictureLink"].asString() <<std::endl;
 					std::string work_name = "print_";
@@ -185,17 +175,10 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 						batch_count_list.push_back(1);
 						batch_origin_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
 						if(return_state == -1){
-							std::string down_filename;
-							// down_filename.append("/");
-							down_filename = root["printwork"][i]["pictureLink"][j].asString();
+							std::string down_filename = to_string(work_id);
+							down_filename.append("/");
+							down_filename.append(root["printwork"][i]["pictureLink"][j].asString());
 							download_list.push_back(down_filename);
-						}else{
-							std::string filename = origin_dir + root["printwork"][i]["pictureLink"][j].asString();
-							if(access(filename.c_str(),F_OK) == -1){
-								return_state = -3;
-								download_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
-								std::cout << "[WARN]" << filename << "does not exist, try to download" << endl;
-							}
 						}
 						std::cout << "set batch num: " << 1 << std::endl;
 						std::cout << "set origin image url" << root["printwork"][i]["pictureLink"][j].asString() <<std::endl;
@@ -213,7 +196,7 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 	
 	rsp_callback(c, to_string(return_state));
 
-	if(return_state == -1 || return_state == -3){
+	if(return_state == -1){
 		sleep(1);
 		std::cout << "start download" << std::endl;
 		downloadFileList(download_list);
@@ -257,7 +240,7 @@ void* post_result(void *arg){
     }
     
     //设置路径
-    std::string sUrlPath = result_url;
+    std::string sUrlPath = "/api/result";
     pCurlClient->setUrlPath(sUrlPath);
     
     std::string res="";
@@ -291,7 +274,6 @@ int readNetParam(){
 			client_host = root["communication"]["client_host"].empty() ? "127.0.0.1" : root["communication"]["client_host"].asString();
 			server_port = root["communication"]["server_port"].empty() ? 7999 : root["communication"]["server_port"].asInt();
 			client_port = root["communication"]["client_port"].empty() ? 7999 : root["communication"]["client_port"].asInt();
-			result_url  = root["communication"]["result_url"].empty() ? "/api/Print/addErrorReport" : root["communication"]["result_url"].asString();
 			cout << client_host<<":"<<client_port<<","<<server_port << endl;
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
@@ -356,28 +338,27 @@ int main(int argc, char *argv[])
 	// 						&batch_origin_list, 
 	// 						&batch_count_list, 
 	// 						first_thread_id);
-    Detector secondDetector(&slv_list_mutex, 
+    Detector monoDetector(&slv_list_mutex, 
 							&result_mutex, 
 							result_root, 
 							&unsolved_list, 
 							&work_name_list, 
 							&work_count_list, 
 							&batch_origin_list,
-							&batch_count_list,
-							SECDETECT); 
+							&batch_count_list); 
 	
     camera.init();
+    camera.setTrigger();
     camera.applyParam();
-    camera.setTrigger(HARD_TRIGGER);
 
 
 	// firstDetector.setParam();
 	// firstDetector.setCameraPtr(&camera);
 	// firstDetector.setSerialPtr(result_serial);
 	
-    secondDetector.setParam();
-	secondDetector.setCameraPtr(&camera);
-	secondDetector.setSerialPtr(result_serial);
+    monoDetector.setParam();
+	monoDetector.setCameraPtr(&camera);
+	monoDetector.setSerialPtr(result_serial);
 
 	// 发送开采命令
 	int ret = 0;
@@ -387,14 +368,15 @@ int main(int argc, char *argv[])
 	// ret = firstDetector.launchThread();
 	// if(ret != 0) printf("[WARN] failed to launch detection");
 
-    ret = secondDetector.launchThread();
+    ret = monoDetector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
 	// std::cout << "test file dir: " << isDirExist("") << std::endl;
     printf("====================Menu================\n");
     printf("[X or x]:Exit\n");
-    // printf("[S or s]:Send softtrigger command\n");
+    printf("[S or s]:Send softtrigger command\n");
 	printf("[C or c]:Push back unsolved list\n");
+    printf("[S or s]:Send softtrigger command\n");
 
 	bool run = true;
     while(run == true)
@@ -406,7 +388,7 @@ int main(int argc, char *argv[])
             case 'X':
             case 'x':
                 run = false;
-				secondDetector.stopThread();
+				monoDetector.stopThread();
 				std::cout<<"camera stop status: "<<camera.stop()<<std::endl;
                 break;
             case 'c':
@@ -414,11 +396,11 @@ int main(int argc, char *argv[])
                 unsolved_list.push("print_1_0_test.ppm");
                 break;
             //发送一次软触发命令
-            // case 'S':
-            // case 's':
-            //     ret = camera.sendSoftTrigger();
-            //     printf("<The return value of softtrigger command: %d>\n", ret);
-            //     break;
+            case 'S':
+            case 's':
+                ret = camera.sendSoftTrigger();
+                printf("<The return value of softtrigger command: %d>\n", ret);
+                break;
 
             default:
                 break;

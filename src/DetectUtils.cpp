@@ -614,3 +614,28 @@ void adjustSize(Mat &img1, Mat img2){
     // 然后变换
     cv::warpPerspective(img1, img1, transform, size);
 }
+
+
+void cutRatio(Mat &img, float ratio, int direction){
+    int height = img.rows;
+    int width = img.cols;
+    Rect part(0,0,width,height);
+    switch (direction)
+    {
+        case CUT_VERTICAL_HEAD:
+            part.height = static_cast<int>(height - height*ratio);
+            part.y = static_cast<int>(height*ratio);
+            break;
+        case CUT_VERTICAL_TAIL:
+            part.height = static_cast<int>(height - height*ratio);
+            break;
+        case CUT_HORIZON_LEFT:
+            part.width = static_cast<int>(width - width*ratio);
+            part.x = static_cast<int>(width*ratio);
+            break;
+        case CUT_HORIZON_RIGHT:
+            part.width = static_cast<int>(width*ratio);
+            break;
+    }
+    img = img(part);
+}

@@ -16,6 +16,8 @@ Detector::Detector():
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    ROI_y_(0),
+    ROI_height_(2400),
     count_(1),
     id_(1)
 {
@@ -47,6 +49,8 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    ROI_y_(0),
+    ROI_height_(2400),
     count_(1),
     id_(1)
 {
@@ -86,6 +90,8 @@ Detector::Detector(
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    ROI_y_(0),
+    ROI_height_(2400),
     count_(1),
     id_(1)
 {
@@ -136,6 +142,8 @@ Detector::Detector(
     img_dir_("../images/test/"),
     d_width_(400),
     d_height_(600),
+    ROI_y_(0),
+    ROI_height_(2400),
     count_(1),
     id_(1)
 {
@@ -181,7 +189,7 @@ Detector::~Detector()
 \return void
 */ 
 //-------------------------------------------------
-int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
+int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
     cv::Mat image_bin;
     cv::Mat image_bin2;
     // 二值化
@@ -193,6 +201,175 @@ int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     
     // namedWindow("gray",CV_WINDOW_NORMAL);
     // imshow("gray", image_gray);
+    // waitKey(0);
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+    cv::findContours(image_bin, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
+        // iterate through all levels, and draw contours in random color
+    int index = 0;
+    if(hierarchy.empty())
+        return -1;
+    for (; index>=0; index = hierarchy[index][0]) {
+        cv::Scalar color(255);
+        // for opencv 2
+        // cv::drawContours(dstImage, contours, index, color,  CV_FILLED, 8, hierarchy);
+        // for opencv 3
+        cv::drawContours(image_bin, contours, index, color,  CV_FILLED, 8, hierarchy);
+    }
+
+    // namedWindow("origin",CV_WINDOW_NORMAL);
+    // imshow("origin", image_bin);
+    // waitKey(0);
+    
+    // 找左右两条直线
+    int i,j;
+    std::vector<std::vector<cv::Point2f> > linePoints(2);
+    std::vector<std::vector<cv::Point> > lines(2);
+    image_bin2=image_bin.clone();
+
+    for(i=0;i<2;i++){
+        cv::Vec4f line;
+        findLinePoint(lines[i],image_bin,i*2,2000,5);
+        if(lines[i].size()<4)
+            return FINDLINEERR;
+        // std::cout << lines[0]<<"," <<lines[1]<<"," <<lines[2]<<"," <<lines[3]<< std::endl;
+        // 拟合直线
+        cv::fitLine(lines[i], line, CV_DIST_HUBER, 0, 0.01, 0.01);
+        std::cout << line[0]<<"," <<line[1]<<"," <<line[2]<<"," <<line[3]<< std::endl;
+
+        cv::Point point0;
+        point0.x = line[2];
+        point0.y = line[3];
+        double k = line[1] / line[0];
+        cv::Point2f point1, point2;
+        cv::Point2f p1,p2;
+        // std:: cout <<k<< endl;
+        point1.x = 0;
+        point1.y = k * (0 - point0.x) + point0.y;
+        point2.x = 5000;
+        point2.y = k * (5000 - point0.x) + point0.y;
+        p1.x=point1.y;
+        p1.y=point1.x;
+        p2.x=point2.y;
+        p2.y=point2.x;
+        linePoints[i].push_back(p1);
+        linePoints[i].push_back(p2);
+        // std::cout <<point1.x<<","<< point1.y<<"  ,  "<<point2.x<<","<<point2.y<< std::endl;
+        cv::line(image_bin2, p1, p2, cv::Scalar(255), 10, 8, 0);
+    }
+
+    // namedWindow("with line",CV_WINDOW_NORMAL);
+    // imshow("with line", image_bin2);
+    // waitKey(0);
+    
+    // 四个交点
+    // double k1 = (linePoints[0][1].x - linePoints[0][0].x)/(linePoints[0][1].y - linePoints[0][0].y);
+    // double k2 = (linePoints[1][1].x - linePoints[1][0].x)/(linePoints[1][1].y - linePoints[1][0].y);
+    double k12 = (linePoints[0][1].y-image_bin.cols)/(linePoints[0][0].y - image_bin.cols);
+    double k22 = (linePoints[1][1].y-image_bin.cols)/(linePoints[1][0].y - image_bin.cols);
+    // cout<<k1<<","<<k2<<endl;
+    // TODO: use vertical vector to find the point
+    /* if(k1 > 0 && k2 > 0){
+        // 左下
+        points[3].x = (k12*linePoints[0][0].x - linePoints[0][1].x)/(k12-1) ;
+        points[3].y = image_bin.rows;
+        // 右上
+        points[1] = linePoints[1][0];
+        // 左上
+        points[0].x = (k1*points[3].x-k2*points[1].x+points[3].y)/(k1-k2);
+        points[0].y = k2*(points[0].x - points[1].x);
+        // points[0] = linePoints[0][0];
+        // 右下
+        points[2].y = (points[3].x-points[1].x-k1*points[3].y)/(k2-k1);
+        points[2].x = k2*points[2].x + points[1].x;
+        // points[2].x = (k12*linePoints[1][0].x - linePoints[1][1].x)/(k12-1);
+        // points[2].y = image_bin.rows;
+    }else if(k1 <0 && k2<0){
+        // 左上
+        points[0] = linePoints[0][0];
+        // 左下
+        // points[3].x = (k12*linePoints[0][0].x - linePoints[0][1].x)/(k12-1) ;
+        // points[3].y = image_bin.rows;
+        // 右上
+        // points[1] = linePoints[1][0];
+        // 右下
+        points[2].x = (k12*linePoints[1][0].x - linePoints[1][1].x)/(k12-1);
+        points[2].y = image_bin.rows;
+    }else{
+        // 左上
+        points[0] = linePoints[0][0];
+        // 左下
+        points[3].x = (k12*linePoints[0][0].x - linePoints[0][1].x)/(k12-1) ;
+        points[3].y = image_bin.rows;
+        // 右上
+        points[1] = linePoints[1][0];
+        // 右下
+        points[2].x = (k12*linePoints[1][0].x - linePoints[1][1].x)/(k12-1);
+        points[2].y = image_bin.rows;
+    } */
+    // 左上
+    points[0] = linePoints[0][0];
+    // 左下
+    points[3].x = (k12*linePoints[0][0].x - linePoints[0][1].x)/(k12-1) ;
+    points[3].y = image_bin.rows;
+    // 右上
+    points[1] = linePoints[1][0];
+    // 右下
+    points[2].x = (k12*linePoints[1][0].x - linePoints[1][1].x)/(k12-1);
+    points[2].y = image_bin.rows;
+
+    cout<<linePoints[0][0]<<","<<linePoints[0][1]<<endl;
+    for(i=0;i<4;i++){
+        // CrossPoint(points[i],linePoints[i],linePoints[(i+1)%4]);
+        cout << points[i].x<<","<< points[i].y << endl;
+    }
+
+
+    // 透视变换
+    std::vector<cv::Point2f> perspective_points(4);
+    perspective_points[0].x=0;
+    perspective_points[0].y=0;
+    perspective_points[1].x=det_img.cols;
+    perspective_points[1].y=0;
+    perspective_points[2].x=det_img.cols;
+    perspective_points[2].y=det_img.rows;
+    perspective_points[3].x=0;
+    perspective_points[3].y=det_img.rows;
+    cv::Mat transform;
+    cv::Size size(det_img.cols,det_img.rows);
+    cout<<perspective_points[0]<<","<<perspective_points[1]<<","<<perspective_points[2]<<","<<perspective_points[3]<<endl;
+    // 得到矩阵
+    transform=cv::getPerspectiveTransform(points, perspective_points);
+    std::cout <<"transform mat"<< transform << std::endl;
+    // 然后变换
+    cv::warpPerspective(image_gray,det_img,transform,size);
+    // namedWindow("final",CV_WINDOW_NORMAL);
+    // imshow("final", det_img);
+    // waitKey();
+    return STATE_OK;
+}
+
+//-------------------------------------------------
+/**
+\brief 提取带白边的标签图片
+\param [in] image_gray 拍摄图像
+\param [out] match_templ 待测图
+\param [out] points 四个角点
+\return void
+*/ 
+//-------------------------------------------------
+int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
+    cv::Mat image_bin;
+    cv::Mat image_bin2;
+    // 二值化
+    // cv::equalizeHist(image_gray,image_gray);
+    // adaptiveThreshold(image_gray, image_bin, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY, 27, 5);
+    image_bin = image_gray > bin_thresh_;
+    Erosion(image_bin, image_bin,0,12);
+    Dilation(image_bin, image_bin,0,12);
+    
+    // namedWindow("gray",CV_WINDOW_NORMAL);
+    // imshow("gray", image_bin);
     // waitKey(0);
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -296,7 +473,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     
     // find small square
     auto t_square_bef = chrono::system_clock::now();
-    threshold(image,square_bin,50,255,1);
+    threshold(image,square_bin,bin_thresh_,255,1);
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     std::vector<RotatedRect> locate_square;
@@ -305,7 +482,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     for (int index = 0; index>=0; index = hierarchy[index][0]) {
         cv::Scalar color(255);
         RotatedRect minRect = minAreaRect(contours[index]);
-        if(abs(minRect.size.width/minRect.size.height-1)<0.1 && abs(minRect.size.width*minRect.size.height-655)<400 
+        if(abs(minRect.size.width/minRect.size.height-1.4)<0.1 && abs(minRect.size.width*minRect.size.height-655)<400 
         && (minRect.size.width*minRect.size.height-400)>0){
             // minRect is left square
             //cv::drawContours(mask, contours, index, color, 2, 8, hierarchy);
@@ -457,7 +634,8 @@ cv::Mat Detector::getLabelImg(Mat img){
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
     Mat mask = Mat::zeros(img.size(),CV_8U);
-    adaptiveThreshold(img, image_bin, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 15, 10);
+    // adaptiveThreshold(img, image_bin, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 15, 10);
+    threshold(img, image_bin, bin_thresh_,255,1);
     cv::findContours(image_bin, contours, hierarchy, CV_RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
     drawContours(mask, contours, -1, Scalar(255));
     // imshow("mask", mask);
@@ -538,8 +716,11 @@ void Detector::highConstract(Mat img, Mat & dst, int r) {
     Dilation(img, dil,0,2);
     Erosion(dil, ero,0,2);
     absdiff(dil,ero,diff1);
-    adaptiveThreshold(img, temp, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 27, 15);
+    adaptiveThreshold(img, temp, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 51, 8);
     GaussianBlur(temp, temp, Size(11,11),1.4,1.4);
+    // namedWindow("temp",CV_WINDOW_NORMAL);
+    // imshow("temp",temp);
+    // waitKey();
     dst = img + r*(img-temp);
 
     /********white********/ 
@@ -683,21 +864,24 @@ int Detector::checkScratch() {
     threshold(template_label_,template_label_bin,240,255,0);
     /****************** white ******************/
     // 检测有颜色部分的瑕疵
-    highConstract(255 - template_label_,A,3);
-    highConstract(255 - label_,B,3);
-    threshold(A,A,250,255,1);
-    threshold(B,B,250,255,1);
+    highConstract(255 - template_label_,A,0.7);
+    highConstract(255 - label_,B,0.7);
+    threshold(A,A,180,255,1);
+    threshold(B,B,180,255,1);
     // namedWindow("template_label_",CV_WINDOW_NORMAL);
     // imshow("template_label_",A);
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
-    common = getCommon(A,B,3);
+    // waitKey();
+    common = getCommon(A,B,1);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
-    bitwise_xor(B,common,diff_white);
-    diff_white = search(diff_white,255-template_label_bin);
+    // waitKey();
+    bitwise_xor(A,common,diff_white);
+    // diff_white = search(diff_white,255-template_label_bin);
     // namedWindow("diff",CV_WINDOW_NORMAL);
-    // imshow("diff",diff);
+    // imshow("diff",diff_white);
+    // waitKey();
     /****************** black ******************/
     // 检测白色部分的瑕疵
     highConstract(template_label_,A,3);
@@ -706,20 +890,29 @@ int Detector::checkScratch() {
     // imshow("template_label_",A);
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
-    threshold(A,A,250,255,1);
-    threshold(B,B,250,255,1);
+    // waitKey();
+    threshold(A,A,240,255,1);
+    threshold(B,B,240,255,1);
+    // namedWindow("template_label_",CV_WINDOW_NORMAL);
+    // imshow("template_label_",A);
+    // namedWindow("label_",CV_WINDOW_NORMAL);
+    // imshow("label_",B);
+    // waitKey();
+
 
     common = getCommon(A,B,3);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
-    bitwise_xor(B,common,diff);
-    diff = search(diff,template_label_bin);
+    // waitKey();
+    bitwise_xor(A,common,diff);
+    // diff = search(diff,template_label_bin);
     bitwise_or(diff,diff_white,diff);
     // absdiff(template_label_,label_,diff);
+    namedWindow("diff",CV_WINDOW_NORMAL);
+    imshow("diff",diff);
+    waitKey();
     Scalar diff_sum = sum(diff);
     std::cout << "diff score"<<diff_sum[0]/255 << '\n';
-    // namedWindow("diff",CV_WINDOW_NORMAL);
-    // imshow("diff",diff);
 
     // log
     if(save_img_switch_){
@@ -767,10 +960,12 @@ int Detector::checkBigProblem(){
     cout<<sizeT<<endl;
     cout<<sizeP<<endl;
 
-    adaptiveThreshold(P, P, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 97, 5);
+    adaptiveThreshold(P, P, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 97, 13);
     threshold(T,T,240,255,1);
     // adaptiveThreshold(T, T, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 11, 10);
+    // namedWindow("Pthresh",CV_WINDOW_NORMAL);
     // imshow("Pthresh",P);
+    // waitKey();
     removeSmallRegion(P,P,noise_thresh,1,1);
 
     common = getCommon(T,P,5);
@@ -870,13 +1065,46 @@ int Detector::setImg(string filename){
         cout<<"[ERROR] No source image!!!"<<endl;
         return -1;
     }
+    // 去除畸变
+    // Mat undistortImg;
+    // Mat K = Mat::zeros(3,3,CV_32FC1); 
+    // K.at<float>(0,0) = 2.5684920914867548e+03;
+    // K.at<float>(0,2) = 1.2758993523622642e+03;
+    // K.at<float>(1,1) = 2.5544385676714087e+03;
+    // K.at<float>(1,2) = 1.0513060811823955e+03;
+    // K.at<float>(2,2) = 1.0;
+    // Mat D = Mat::zeros(4,1,CV_32FC1); 
+    // D.at<float>(0,0) = -1.6065401633533957e-01;
+    // D.at<float>(1,0) = 7.1483079714537073e-02;
+    // D.at<float>(2,0) = 2.0987465577356102e-03;
+    // D.at<float>(3,0) = -3.3763926406126738e-03;
+    // cout<<K<<endl<<D<<endl;
+    // fisheye::undistortImage(src, undistortImg, K, D, K);
+    // namedWindow("undistort",WINDOW_NORMAL);
+    // imshow("undistort",undistortImg);
+    // waitKey();
+
     Mat img;
     transpose(src, img);
     flip(img,img,0);
+    
+    // 选取连续纸张ROI
+    Rect ROI(0,0,img.cols,img.rows);
+    ROI.y = ROI_y_;
+    ROI.height = ROI_height_;
+    // cout<<ROI.y<<","<<ROI.height<<endl;
+    img = img(ROI);
+    // namedWindow("img",WINDOW_NORMAL);
+    // imshow("img",img);
+    // waitKey();
+
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    if(STATE_OK != findLabel(img, img_gray_, img_points_))
+    // if(STATE_OK != findLabel(img, img_gray_, img_points_))
+    //     return -2;
+    if(STATE_OK != findPaper(img, img_gray_, img_points_))
         return -2;
-    label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
+    // label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
+    label_ = img_gray_;
     // label_ = getLabelImg(img_gray_);
     // imshow("img",img_gray_);
     // waitKey();
@@ -968,6 +1196,8 @@ int Detector::setParam(){
             template_dir_ = root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
             img_dir_ = root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
             input_type_ |= root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
+            ROI_y_ = root["detection"]["ROI"]["y"].empty() ? ROI_y_ : root["detection"]["ROI"]["y"].asInt();
+            ROI_height_ = root["detection"]["ROI"]["height"].empty() ? ROI_height_ : root["detection"]["ROI"]["height"].asInt();
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }

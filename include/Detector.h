@@ -50,6 +50,8 @@ private:
     float k_bigpro_;
     string template_dir_;
     string img_dir_;
+    int ROI_y_;
+    int ROI_height_;
 
     // 计数器
     int64_t count_;
@@ -101,6 +103,7 @@ private:
 
 protected:
     int findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
+    int findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points);
     cv::Mat getLabelImg(Mat img);
     void getROI(cv::Mat image, cv::Mat &dst);
     cv::Mat LOG(Mat img);

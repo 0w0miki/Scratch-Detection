@@ -15,6 +15,11 @@
 using namespace std;
 using namespace cv;
 
+#define CUT_VERTICAL_HEAD   1
+#define CUT_VERTICAL_TAIL   -1
+#define CUT_HORIZON_LEFT    2
+#define CUT_HORIZON_RIGHT   -2
+
 // 腐蚀
 void Erosion(const Mat& src, Mat& dst, int erosion_elem, int erosion_size );
 
@@ -61,5 +66,7 @@ void getSobel(Mat src_gray, Mat & grad, int order);
 
 // 调整大小和第二个图一致
 void adjustSize(Mat &img1, Mat img2);
+
+void cutRatio(Mat &img, float ratio, int direction = CUT_VERTICAL_HEAD);
 
 #endif

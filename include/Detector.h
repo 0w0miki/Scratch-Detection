@@ -101,6 +101,9 @@ private:
     // 串口指针
     Serial* serial_;
 
+    // remap
+    cv::Mat remap_x_, remap_y_;
+
 protected:
     int findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
     int findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points);

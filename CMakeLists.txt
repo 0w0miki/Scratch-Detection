@@ -181,3 +181,11 @@ add_executable(serial_demo
     test/serial.cpp
     src/Serial.cpp
 )
+
+add_executable(calibration
+    src/calibration.cpp
+    
+)
+target_link_libraries(calibration
+    ${CAMERALIBS}
+)

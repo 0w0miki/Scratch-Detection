@@ -873,7 +873,7 @@ int Detector::checkScratch() {
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
     // waitKey();
-    common = getCommon(A,B,1);
+    common = getCommon(A,B,3);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
     // waitKey();
@@ -908,11 +908,11 @@ int Detector::checkScratch() {
     // diff = search(diff,template_label_bin);
     bitwise_or(diff,diff_white,diff);
     // absdiff(template_label_,label_,diff);
-    namedWindow("diff",CV_WINDOW_NORMAL);
-    imshow("diff",diff);
-    waitKey();
+    // namedWindow("diff",CV_WINDOW_NORMAL);
+    // imshow("diff",diff);
+    // waitKey();
     Scalar diff_sum = sum(diff);
-    std::cout << "diff score"<<diff_sum[0]/255 << '\n';
+    std::cout << "scratch score"<<diff_sum[0]/255 << '\n';
 
     // log
     if(save_img_switch_){
@@ -1066,52 +1066,52 @@ int Detector::setImg(string filename){
         return -1;
     }
     // 去除畸变
-    // Mat undistortImg;
-    // Mat K = Mat::zeros(3,3,CV_32FC1); 
-    // K.at<float>(0,0) = 2.5684920914867548e+03;
-    // K.at<float>(0,2) = 1.2758993523622642e+03;
-    // K.at<float>(1,1) = 2.5544385676714087e+03;
-    // K.at<float>(1,2) = 1.0513060811823955e+03;
-    // K.at<float>(2,2) = 1.0;
-    // Mat D = Mat::zeros(4,1,CV_32FC1); 
-    // D.at<float>(0,0) = -1.6065401633533957e-01;
-    // D.at<float>(1,0) = 7.1483079714537073e-02;
-    // D.at<float>(2,0) = 2.0987465577356102e-03;
-    // D.at<float>(3,0) = -3.3763926406126738e-03;
-    // cout<<K<<endl<<D<<endl;
+    Mat undistortImg = src;
+    // Mat test = getOptimalNewCameraMatrix(K, D, src.size(), 1.0, src.size(), 0);
+    // cout<<test<<endl;
+    
+    remap(src, undistortImg, remap_x_, remap_y_, INTER_LINEAR); 
     // fisheye::undistortImage(src, undistortImg, K, D, K);
-    // namedWindow("undistort",WINDOW_NORMAL);
-    // imshow("undistort",undistortImg);
-    // waitKey();
+    namedWindow("undistort",WINDOW_NORMAL);
+    imshow("undistort",undistortImg);
+    imwrite("undistort.png",undistortImg);
+    waitKey();
 
     Mat img;
-    transpose(src, img);
+    threshold(undistortImg, img, bin_thresh_, 255, CV_THRESH_BINARY);
+    // image_init(undistortImg, img);
+
+    // ANCHOR now edit
+    img = getPaper(undistortImg,img);
+    if(img.empty())
+        return -2;
+    transpose(img, img);
     flip(img,img,0);
-    
+
     // 选取连续纸张ROI
     Rect ROI(0,0,img.cols,img.rows);
     ROI.y = ROI_y_;
     ROI.height = ROI_height_;
-    // cout<<ROI.y<<","<<ROI.height<<endl;
-    img = img(ROI);
-    // namedWindow("img",WINDOW_NORMAL);
-    // imshow("img",img);
-    // waitKey();
-
-    img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
+    cout<<img.size()<<endl;
+    cout<<ROI.y<<","<<ROI.height<<endl;
+    img_gray_ = img(ROI);
+    namedWindow("img",WINDOW_NORMAL);
+    imshow("img",img);
+    waitKey();
+    // img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
     // if(STATE_OK != findLabel(img, img_gray_, img_points_))
     //     return -2;
-    if(STATE_OK != findPaper(img, img_gray_, img_points_))
-        return -2;
     // label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
     label_ = img_gray_;
     // label_ = getLabelImg(img_gray_);
     // imshow("img",img_gray_);
     // waitKey();
+    adjustSize(img_gray_, template_label_);
     adjustSize(label_, template_label_);
-    return STATE_OK;
-    // imshow("label_",label_);
+    // namedWindow("label_",WINDOW_NORMAL);
+    // imshow("label_",template_label_);
     // waitKey();
+    return STATE_OK;
     // getROI(img_gray_, label_);
 }
 
@@ -1151,14 +1151,24 @@ int Detector::setImg(cv::Mat img){
 void Detector::saveImg(string pre, cv::Mat img){
     string Output_Path = "../Output/images/";
     string suffix = ".jpg";
-    string Output_name = Output_Path + pre + to_string(id_) + suffix; 
+    string Output_name = Output_Path + pre + to_string(id_) + '_' + to_string(count_) + suffix; 
     imwrite(Output_name, img);
 }
 
+/**
+ * @brief 设置相机对象指针
+ * 
+ * @param camera 相机对象指针
+ */
 void Detector::setCameraPtr(Camera* camera){
     camera_ = camera;
 }
 
+/**
+ * @brief 设置串口对象指针
+ * 
+ * @param serial 串口对象指针
+ */
 void Detector::setSerialPtr(Serial* serial){
     serial_ = serial;
 }
@@ -1203,6 +1213,24 @@ int Detector::setParam(){
         }
         paramfile.close();
     }
+
+
+    // ANCHOR distort map
+    Mat K = Mat::zeros(3,3,CV_32FC1); 
+    K.at<float>(0,0) = 2.6018847482168276e+03;
+    K.at<float>(0,2) = 1.2348647217067462e+03;
+    K.at<float>(1,1) = 2.5839182111365440e+03;
+    K.at<float>(1,2) = 1.0295527041886703e+03;
+    K.at<float>(2,2) = 1.0;
+    Mat D = Mat::zeros(1,4,CV_32FC1); 
+    D.at<float>(0,0) = -1.1045765506977103e-01;
+    D.at<float>(0,1) = 0;
+    D.at<float>(0,2) = -5e-3;
+    D.at<float>(0,3) = 0;
+    cout<<K<<endl<<D<<endl;
+    initUndistortRectifyMap(K,D,Mat(),
+                            getOptimalNewCameraMatrix(K, D, cv::Size(2448,2048), 1.0, cv::Size(2448,2048), 0),
+                            cv::Size(2448,2048), CV_16SC2, remap_x_, remap_y_);
     // setThresh();
     return 0;
 }

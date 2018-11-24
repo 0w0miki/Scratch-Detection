@@ -639,3 +639,72 @@ void cutRatio(Mat &img, float ratio, int direction){
     }
     img = img(part);
 }
+
+/**
+ * @brief           获取纸张部分ROI
+ * 
+ * @param src_img   原始图像
+ * @param roi_img   分割后图像
+ * @return Mat 
+ */
+Mat getPaper(Mat src_img, Mat& roi_img)
+{
+	vector<vector<Point>> roi_contours;
+	RotatedRect roi_rect;
+	Mat roi;
+	Size image_size(src_img.size());
+
+	findContours(roi_img, roi_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+	for (int i = 0; i < roi_contours.size(); i++)
+	{
+		roi_rect = minAreaRect(roi_contours[i]);
+		if (roi_rect.size.width > 1000 && roi_rect.size.height > 500)
+		{
+			Point2f vertices[4];
+			roi_rect.points(vertices);
+			for (int k = 0; k < 4; k++) {
+				line(roi_img, vertices[k], vertices[(k + 1) % 4], Scalar(255), 3);
+			}
+			// 旋转使矩形摆正
+			Mat rotation = getRotationMatrix2D(roi_rect.center, roi_rect.angle, 1.0);;
+			Mat rot_img;
+			int imgx, imgy, imgwidth, imgheight;
+
+			if (roi_rect.size.width > roi_rect.size.height)
+			{
+				imgx = 0;
+				imgy = roi_rect.center.y - (roi_rect.size.height / 2.0) > 0 ? roi_rect.center.y - (roi_rect.size.height / 2.0) : 0;
+				imgwidth = roi_img.cols;
+				imgheight = roi_rect.center.y + (roi_rect.size.height / 2.0) < roi_img.rows ? roi_rect.size.height : roi_img.rows - imgy;
+			}
+			else
+			{
+				imgx = roi_rect.center.x - (roi_rect.size.width / 2.0) > 0 ? roi_rect.center.x - (roi_rect.size.width / 2.0) : 0;
+				imgy = 0;
+				imgwidth = roi_rect.center.x + (roi_rect.size.width / 2.0) < roi_img.cols ? roi_rect.size.width : roi_img.cols - imgy;
+				imgheight = roi_img.rows;
+			}
+				
+			warpAffine(src_img, rot_img, rotation, image_size);
+			// namedWindow("rot_img", WINDOW_NORMAL);
+			// imshow("rot_img", roi_img);
+            // waitKey();
+
+			// 旋转矩形摆正后的坐标
+			roi = rot_img(Rect(imgx, imgy, imgwidth, imgheight));
+            // namedWindow("rot_img", WINDOW_NORMAL);
+			// imshow("rot_img", roi);
+            // waitKey();
+			// 统一方向
+			
+			if (roi_rect.size.width < roi_rect.size.height)
+			{
+				transpose(roi, roi);
+				flip(roi, roi, 0);
+			}
+			// 统一形状
+			// resize(roi, roi, image_size);
+		}
+	}
+	return roi;
+}

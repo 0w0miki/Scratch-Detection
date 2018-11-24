@@ -351,7 +351,7 @@ int main(int argc, char *argv[])
 	
     camera.init();
     camera.applyParam();
-    camera.setTrigger(HARD_TRIGGER);
+    camera.setTrigger(SOFT_TRIGGER);
 
 
 	// firstDetector.setParam();
@@ -395,11 +395,11 @@ int main(int argc, char *argv[])
                 break;
             case 'c':
             case 'C':
-                unsolved_list.push("print_1_0_test.ppm");
+                unsolved_list.push("2018-11-23_19_06_38_218.bmp");
                 break;
 			case 'v':
             case 'V':
-                unsolved_list.push("print_3_1.ppm");
+                unsolved_list.push("print_1_3_2000.ppm");
                 break;
             //发送一次软触发命令
             case 'S':

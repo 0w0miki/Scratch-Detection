@@ -666,8 +666,8 @@ Mat getPaper(Mat src_img, Mat& roi_img)
 				line(roi_img, vertices[k], vertices[(k + 1) % 4], Scalar(255), 3);
 			}
 			// 旋转使矩形摆正
-            printf("angle %f, width %f, height %f",roi_rect.angle,roi_rect.size.width, roi_rect.size.height);
-			Mat rotation = getRotationMatrix2D(roi_rect.center, roi_rect.angle, 1.0);;
+            // printf("angle %f, width %f, height %f",roi_rect.angle,roi_rect.size.width, roi_rect.size.height);
+			Mat rotation;
 			Mat rot_img;
 			int imgx, imgy, imgwidth, imgheight;
 
@@ -676,11 +676,11 @@ Mat getPaper(Mat src_img, Mat& roi_img)
 				//     ┌---------┐
                 //     |         |
                 //     └---------┘
+                rotation = getRotationMatrix2D(roi_rect.center, roi_rect.angle, 1.0);
                 imgx = 0;
 				imgy = roi_rect.center.y - (roi_rect.size.height / 2.0) > 0 ? roi_rect.center.y - (roi_rect.size.height / 2.0) : 0;
 				imgwidth = roi_img.cols;
 				imgheight = roi_rect.center.y + (roi_rect.size.height / 2.0) < roi_img.rows ? roi_rect.size.height : roi_img.rows - imgy;
-                warpAffine(src_img, rot_img, rotation, image_size);
 			}
 			else
 			{
@@ -690,32 +690,26 @@ Mat getPaper(Mat src_img, Mat& roi_img)
                 //    |    |
                 //    |    |
                 //    └----┘
-                // FIXME "imgheight是短边 imgwidth是长边"
-                warpAffine(src_img, rot_img, rotation, cv::Size(src_img.cols,src_img.cols));
-				imgx = roi_rect.center.y - (roi_rect.size.width / 2.0) > 0 ? roi_img.rows - (roi_rect.center.y + (roi_rect.size.width / 2.0)) : 0;
-				imgy = 0;
-				imgwidth = roi_rect.center.y + (roi_rect.size.width / 2.0) < roi_img.rows ? roi_rect.size.width : roi_img.rows - imgx;
-				imgheight = roi_img.cols;
+                rotation = getRotationMatrix2D(roi_rect.center, roi_rect.angle+90, 1.0);
+				imgx = 0;
+				imgy = roi_rect.center.y - (roi_rect.size.width / 2.0) > 0 ? roi_rect.center.y - (roi_rect.size.width / 2.0) : 0;
+				imgwidth = roi_img.cols;
+				imgheight = roi_rect.center.y + (roi_rect.size.width / 2.0) < roi_img.rows ? roi_rect.size.width : roi_img.rows - imgy;
 			}
 
+            warpAffine(src_img, rot_img, rotation, image_size);
 			namedWindow("rot_img", WINDOW_NORMAL);
 			imshow("rot_img", rot_img);
             waitKey();
 
-            printf("x %d, y %d, width %d, height %d",imgx,imgy,imgwidth, imgheight);
+            // printf("x %d, y %d, width %d, height %d",imgx,imgy,imgwidth, imgheight);
             cout<<roi_img.size()<<endl;
 			// 旋转矩形摆正后的坐标
 			roi = rot_img(Rect(imgx, imgy, imgwidth, imgheight));
             // namedWindow("rot_img", WINDOW_NORMAL);
 			// imshow("rot_img", roi);
             // waitKey();
-			// 统一方向
-			// FIXME "可能出现图片旋转90°只在中间的情况"
-			if (roi_rect.size.width < roi_rect.size.height)
-			{
-				transpose(roi, roi);
-				flip(roi, roi, 0);
-			}
+
 			// 统一形状
 			// resize(roi, roi, image_size);
 		}

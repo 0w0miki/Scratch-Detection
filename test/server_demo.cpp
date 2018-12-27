@@ -393,9 +393,17 @@ int main(int argc, char *argv[])
 				secondDetector.stopThread();
 				std::cout<<"camera stop status: "<<camera.stop()<<std::endl;
                 break;
+            case 'a':
+            case 'A':
+                unsolved_list.push("a.bmp");
+				break;
+            case 'b':
+            case 'B':
+                unsolved_list.push("b.bmp");
+				break;
             case 'c':
             case 'C':
-                unsolved_list.push("2018-11-23_19_06_38_218.bmp");
+                unsolved_list.push("c.bmp");
                 break;
 			case 'v':
             case 'V':

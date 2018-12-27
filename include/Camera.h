@@ -14,6 +14,7 @@
 #include <queue>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include "CameraUtils.h"
 #include "json/json.h"
 

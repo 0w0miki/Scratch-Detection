@@ -752,13 +752,14 @@ cv::Mat Detector::search(Mat img, Mat template_img){
 //-------------------------------------------------
 int Detector::checkPos() {
     // 偏差
+    const int N = 3;
     auto t_checkPos_bef = chrono::system_clock::now();
     cv::Mat adjust_match;
     cv::Mat diff;
     vector<Mat> mats;
     int i,j;
-    for(i=0;i<3;i++){
-        for(j=0;j<3;j++){
+    for(i=0;i<N;i++){
+        for(j=0;j<N;j++){
             Mat mat;
             mat= Mat::zeros(img_gray_.rows, img_gray_.cols, CV_8U);
             image_transfrom(img_gray_, mat,j-1,i-1);
@@ -773,7 +774,7 @@ int Detector::checkPos() {
         }
     }
     // cout <<mats[4]<< endl;
-    adjust_match=mats[4].clone();
+    adjust_match=mats[(N*N-1)/2].clone();
     // 25个矩阵求最小值
     image_min(mats,adjust_match);
     // imshow("adjust_match",adjust_match);
@@ -863,7 +864,7 @@ int Detector::checkScratch() {
     Mat common,A,B,template_label_bin,diff_white,diff;
     threshold(template_label_,template_label_bin,240,255,0);
     /****************** white ******************/
-    // 检测有颜色部分的瑕疵
+    // 检测有颜色部分的瑕疵 黑底白色
     highConstract(255 - template_label_,A,0.7);
     highConstract(255 - label_,B,0.7);
     threshold(A,A,180,255,1);
@@ -878,12 +879,12 @@ int Detector::checkScratch() {
     // imshow("common",common);
     // waitKey();
     bitwise_xor(A,common,diff_white);
-    // diff_white = search(diff_white,255-template_label_bin);
-    // namedWindow("diff",CV_WINDOW_NORMAL);
-    // imshow("diff",diff_white);
+    diff_white = search(diff_white,255-template_label_bin);
+    // namedWindow("diff_w",CV_WINDOW_NORMAL);
+    // imshow("diff_w",diff_white);
     // waitKey();
     /****************** black ******************/
-    // 检测白色部分的瑕疵
+    // 检测白色部分的瑕疵 白底黑色
     highConstract(template_label_,A,3);
     highConstract(label_,B,3);
     // namedWindow("template_label_",CV_WINDOW_NORMAL);
@@ -1067,26 +1068,26 @@ int Detector::setImg(string filename){
     }
     // 去除畸变
     Mat undistortImg = src;
-    // Mat test = getOptimalNewCameraMatrix(K, D, src.size(), 1.0, src.size(), 0);
-    // cout<<test<<endl;
     
     remap(src, undistortImg, remap_x_, remap_y_, INTER_LINEAR); 
-    // fisheye::undistortImage(src, undistortImg, K, D, K);
-    namedWindow("undistort",WINDOW_NORMAL);
-    imshow("undistort",undistortImg);
-    imwrite("undistort.png",undistortImg);
-    waitKey();
+    // namedWindow("undistort",WINDOW_NORMAL);
+    // imshow("undistort",undistortImg);
+    // imwrite("undistort.png",undistortImg);
+    // waitKey();
 
     Mat img;
     threshold(undistortImg, img, bin_thresh_, 255, CV_THRESH_BINARY);
-    // image_init(undistortImg, img);
 
-    // ANCHOR now edit
     img = getPaper(undistortImg,img);
     if(img.empty())
         return -2;
     transpose(img, img);
     flip(img,img,0);
+
+
+    namedWindow("img",WINDOW_NORMAL);
+    imshow("img",img);
+    waitKey();
 
     // 选取连续纸张ROI
     Rect ROI(0,0,img.cols,img.rows);
@@ -1096,8 +1097,9 @@ int Detector::setImg(string filename){
     cout<<ROI.y<<","<<ROI.height<<endl;
     img_gray_ = img(ROI);
     namedWindow("img",WINDOW_NORMAL);
-    imshow("img",img);
+    imshow("img",img_gray_);
     waitKey();
+
     // img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
     // if(STATE_OK != findLabel(img, img_gray_, img_points_))
     //     return -2;
@@ -1187,6 +1189,7 @@ int Detector::launchThread(){
 int Detector::setParam(){
 	std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
+    int img_width, img_height;
     if(!paramfile){
         printf("[ERROR] failed to open settings.json\n");
         return -1;
@@ -1208,6 +1211,9 @@ int Detector::setParam(){
             input_type_ |= root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
             ROI_y_ = root["detection"]["ROI"]["y"].empty() ? ROI_y_ : root["detection"]["ROI"]["y"].asInt();
             ROI_height_ = root["detection"]["ROI"]["height"].empty() ? ROI_height_ : root["detection"]["ROI"]["height"].asInt();
+            // read calibration file
+            img_width = root["detection"]["img"]["width"].empty() ? 5496 : root["detection"]["img"]["width"].asInt();
+            img_height = root["detection"]["img"]["height"].empty() ? 3672 : root["detection"]["img"]["height"].asInt();
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }
@@ -1217,21 +1223,23 @@ int Detector::setParam(){
 
     // ANCHOR distort map
     Mat K = Mat::zeros(3,3,CV_32FC1); 
-    K.at<float>(0,0) = 2.6018847482168276e+03;
-    K.at<float>(0,2) = 1.2348647217067462e+03;
-    K.at<float>(1,1) = 2.5839182111365440e+03;
-    K.at<float>(1,2) = 1.0295527041886703e+03;
+    K.at<float>(0,0) = 5.4686824475865678e+03;
+    K.at<float>(0,2) = 2.8218132226974494e+03;
+    K.at<float>(1,1) = 5.4339587375402944e+03;
+    K.at<float>(1,2) = 1.7965269137752516e+03;
     K.at<float>(2,2) = 1.0;
     Mat D = Mat::zeros(1,4,CV_32FC1); 
-    D.at<float>(0,0) = -1.1045765506977103e-01;
-    D.at<float>(0,1) = 0;
-    D.at<float>(0,2) = -5e-3;
-    D.at<float>(0,3) = 0;
+
+    D.at<float>(0,0) = -9.9969522724538409e-02;
+    D.at<float>(0,1) = 1.5747800609735992e-01;
+    // D.at<float>(0,2) = 4.2284998727899482e-04;
+    // D.at<float>(0,3) = 1.7908780726509032e-03;
     cout<<K<<endl<<D<<endl;
     initUndistortRectifyMap(K,D,Mat(),
-                            getOptimalNewCameraMatrix(K, D, cv::Size(2448,2048), 1.0, cv::Size(2448,2048), 0),
-                            cv::Size(2448,2048), CV_16SC2, remap_x_, remap_y_);
+                            getOptimalNewCameraMatrix(K, D, cv::Size(img_width,img_height), 1.0, cv::Size(img_width,img_height), 0),
+                            cv::Size(img_width,img_height), CV_16SC2, remap_x_, remap_y_);
     // setThresh();
+    
     return 0;
 }
 

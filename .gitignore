@@ -12,6 +12,7 @@ CTestTestfile.cmake
 *.png
 *.jpg
 *.JPG
+*.bmp
 
 build
 lib

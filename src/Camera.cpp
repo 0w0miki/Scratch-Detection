@@ -254,13 +254,13 @@ void Camera::ProcGetImage(){
 
     while(g_get_image_)
     {
-
         status = GXGetImage(g_device_, &g_frame_data_, 100);
         
         if(status == GX_STATUS_SUCCESS)
         {
             if(g_frame_data_.nStatus == 0)
             {
+                
                 g_time_counter_.Begin();
                 printf("<Successful acquisition: Width: %d Height: %d>\n", g_frame_data_.nWidth, g_frame_data_.nHeight);
                 status = GXIsImplemented(g_device_, GX_BUFFER_FRAME_INFORMATION, &is_implemented);
@@ -273,7 +273,11 @@ void Camera::ProcGetImage(){
                 }
                 //保存Raw数据
                 // SaveRawFile(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
-                
+                status  = DxAutoRawDefectivePixelCorrect(g_frame_data_.pImgBuf,g_frame_data_.nWidth, g_frame_data_.nHeight, 8);
+                if (status != DX_OK)
+                {
+                    GetErrorString(status);
+                }
                 //将Raw数据处理成RGB数据
                 ProcessData(g_frame_data_.pImgBuf, 
                         g_raw8_buffer_, 
@@ -282,15 +286,18 @@ void Camera::ProcGetImage(){
                         g_frame_data_.nHeight,
                         g_pixel_format_,
                         g_color_filter_); 
-                // cv::Mat image(g_frame_data_.nHeight, g_frame_data_.nWidth, CV_8UC3, (uchar*)g_rgb_frame_data_);
-                // cv::imshow("original image",image);
-                // cv::waitKey(1);
                 if(ROIs_.size()>0){
                     SavePPMwithROIs(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight, ROIs_);
                 }else{
                     //保存RGB数据
                     SavePPMFile(g_rgb_frame_data_, g_frame_data_.nWidth, g_frame_data_.nHeight);
                 }
+                // cv::Mat image(g_frame_data_.nHeight, g_frame_data_.nWidth, CV_8UC3, (uchar*)g_rgb_frame_data_);
+                // cv::cvtColor(image,image,cv::COLOR_RGB2BGR);
+                // cv::namedWindow("camera original image", CV_WINDOW_NORMAL);
+                // cv::imshow("camera original image",image);
+                // cv::waitKey();
+
                 printf("time of process %ld us\n", g_time_counter_.End());
             // }else{
             //     SaveMono(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
@@ -384,6 +391,12 @@ int Camera::init(){
     {
         GetErrorString(status);
     }
+
+    // status=GXSetEnum(g_device_, GX_ENUM_DEAD_PIXEL_CORRECT, GX_DEAD_PIXEL_CORRECT_ON);
+    // if(status != GX_STATUS_SUCCESS)
+    // {
+    //     GetErrorString(status);
+    // }
 
     //为采集做准备
     ret = PreForImage();

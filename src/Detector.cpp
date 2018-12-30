@@ -222,7 +222,7 @@ int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     // waitKey(0);
     
     // 找左右两条直线
-    int i,j;
+    int i;
     std::vector<std::vector<cv::Point2f> > linePoints(2);
     std::vector<std::vector<cv::Point> > lines(2);
     image_bin2=image_bin.clone();
@@ -864,7 +864,7 @@ int Detector::checkScratch() {
     Mat common,A,B,template_label_bin,diff_white,diff;
     threshold(template_label_,template_label_bin,240,255,0);
     /****************** white ******************/
-    // 检测有颜色部分的瑕疵 黑底白色
+    // 检测有颜色部分的瑕疵 以白色底时黑色部分的不同
     highConstract(255 - template_label_,A,0.7);
     highConstract(255 - label_,B,0.7);
     threshold(A,A,180,255,1);
@@ -878,13 +878,12 @@ int Detector::checkScratch() {
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
     // waitKey();
-    bitwise_xor(A,common,diff_white);
-    diff_white = search(diff_white,255-template_label_bin);
+    bitwise_xor(B,common,diff_white);
     // namedWindow("diff_w",CV_WINDOW_NORMAL);
     // imshow("diff_w",diff_white);
     // waitKey();
     /****************** black ******************/
-    // 检测白色部分的瑕疵 白底黑色
+    // 检测白色部分的瑕疵 以黑色底时白色部分的不同
     highConstract(template_label_,A,3);
     highConstract(label_,B,3);
     // namedWindow("template_label_",CV_WINDOW_NORMAL);
@@ -899,19 +898,17 @@ int Detector::checkScratch() {
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
     // waitKey();
-
-
     common = getCommon(A,B,3);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
     // waitKey();
-    bitwise_xor(A,common,diff);
-    // diff = search(diff,template_label_bin);
-    bitwise_or(diff,diff_white,diff);
-    // absdiff(template_label_,label_,diff);
+    bitwise_xor(B,common,diff);
+
     // namedWindow("diff",CV_WINDOW_NORMAL);
     // imshow("diff",diff);
     // waitKey();
+    
+    bitwise_or(diff,diff_white,diff);
     Scalar diff_sum = sum(diff);
     std::cout << "scratch score"<<diff_sum[0]/255 << '\n';
 
@@ -1059,7 +1056,7 @@ int Detector::setOriginImg(cv::Mat img){
 */ 
 //-------------------------------------------------
 int Detector::setImg(string filename){
-    
+    // 读入图片
     string file = img_dir_ + filename;
     Mat src = cv::imread(file,0);
     if(!src.data){
@@ -1067,17 +1064,18 @@ int Detector::setImg(string filename){
         return -1;
     }
     // 去除畸变
-    Mat undistortImg = src;
-    
+    Mat undistortImg = src;    
     remap(src, undistortImg, remap_x_, remap_y_, INTER_LINEAR); 
     // namedWindow("undistort",WINDOW_NORMAL);
     // imshow("undistort",undistortImg);
     // imwrite("undistort.png",undistortImg);
     // waitKey();
 
+    // 二值化
     Mat img;
     threshold(undistortImg, img, bin_thresh_, 255, CV_THRESH_BINARY);
 
+    // 获取纸张区域
     img = getPaper(undistortImg,img);
     if(img.empty())
         return -2;
@@ -1085,29 +1083,22 @@ int Detector::setImg(string filename){
     flip(img,img,0);
 
 
-    namedWindow("img",WINDOW_NORMAL);
-    imshow("img",img);
-    waitKey();
+    // namedWindow("img",WINDOW_NORMAL);
+    // imshow("img",img);
+    // waitKey();
 
-    // 选取连续纸张ROI
+    // 选取A4区域的ROI
     Rect ROI(0,0,img.cols,img.rows);
     ROI.y = ROI_y_;
     ROI.height = ROI_height_;
     cout<<img.size()<<endl;
     cout<<ROI.y<<","<<ROI.height<<endl;
     img_gray_ = img(ROI);
-    namedWindow("img",WINDOW_NORMAL);
-    imshow("img",img_gray_);
-    waitKey();
-
-    // img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
-    // if(STATE_OK != findLabel(img, img_gray_, img_points_))
-    //     return -2;
-    // label_ = Mat::zeros(template_label_.rows, template_label_.cols,CV_8U);
-    label_ = img_gray_;
-    // label_ = getLabelImg(img_gray_);
+    // namedWindow("img",WINDOW_NORMAL);
     // imshow("img",img_gray_);
     // waitKey();
+
+    label_ = img_gray_;
     adjustSize(img_gray_, template_label_);
     adjustSize(label_, template_label_);
     // namedWindow("label_",WINDOW_NORMAL);
@@ -1454,4 +1445,5 @@ void Detector::writeResJson(int8_t result){
 int Detector::stopThread(){
     start_detect_ = false;
     pthread_cancel(this->detection_thread_);
+    return STATE_OK;
 }

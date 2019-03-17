@@ -69,6 +69,8 @@ void adjustSize(Mat &img1, Mat img2);
 
 void cutRatio(Mat &img, float ratio, int direction = CUT_VERTICAL_HEAD);
 
+void cutPx(Mat &img, int px, int direction = CUT_VERTICAL_HEAD);
+
 Mat getPaper(Mat src_img, Mat& roi_img);
 
 #endif

@@ -1,0 +1,100 @@
+.wrapper{
+    display: flex;
+    margin: 2vh 1vw;
+    height: 96vh;
+}
+
+.left-container
+{
+    width: 22vw;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+.right-container{
+    width: 74vw;
+    display: flex;
+    justify-content: center;
+}
+.right-container>div{
+    text-align: center;
+}
+
+.box {
+    font-size: 1vw;
+    border: 2px;
+    padding: 0.2em;
+}
+
+.right-container div{
+    width: 50%;
+}
+
+.task-item div,
+.block div,
+.block input {
+    display: inline;
+    font-size: 1em;
+}
+
+/* 列表 */
+ul{
+    padding-left: 0;
+    margin: 0;
+    overflow-y: auto;
+    bottom: 0;
+    height: 80%;
+}
+
+.list-title div:last-child,
+.task-item div:last-child{
+    float: right;
+    text-align: center;
+}
+.list-title,
+.task-item
+{
+    padding: 2px 25%;
+    margin: 0;
+}
+.task-item{
+    list-style: none;    
+    border:1px solid #e5e9ef;
+    border-radius: 4px;
+}
+
+.task-item:hover{
+    background-color: #ebf6facb;
+    border-color: #00a1d6;
+}
+
+.task-item.cur{
+    border-color: #2bd600;
+    border-width: 3px;
+    background-color: #eaffe6;
+}
+
+.task-item.active{
+    color:#fff;
+    background-color: #00a1d6;
+    border-color: #00a1d6;
+}
+
+/* 按钮 */
+.button {
+    background-color: whitesmoke;
+    top: 0px;
+    right: 0px;
+    border: 1px solid #BBBBBB;
+    border-radius: 4px;
+    text-align: center;
+    z-Index: 9
+}
+
+/* 图像 */
+.imgbox{
+    border: 1px solid black;
+    border-radius: 4px;
+    margin: 0 6px;
+}

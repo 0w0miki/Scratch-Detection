@@ -1,0 +1,45 @@
+# 程序
+大恒相机界面
+cd dhcam_install_20180302/dh_camera/daheng-sdk-x64/demo/
+sudo -E ./GalaxyView
+
+打开终端输入
+cd ~/gree/build
+sudo -E ./soft_trigger
+如果没有报错信息，则成功
+
+打开另一个终端，发送样图数据。数据保存在batch_info.json文件中。
+cd ~/gree
+curl --data @batch_info.json http://127.0.0.1:7999/api/start
+应返回{"StatusCode":"100"}
+
+batch_info.json格式如下，修改样图时需要进行相应更改
+{"printwork":[
+        {
+            "printJobID": 1,        //指明编号
+            "printQuantity":3,      //指明数量
+            "printRedoFlag": false, //是否重打
+            "pictureLink":
+            [
+                "1/0009.jpg",       //样图路径
+		        "1/0009.jpg",
+                "1/0001.jpg"
+            ]
+        }
+    ]
+}
+
+回到前一个终端
+输入s回车发送触发信号拍摄图像并检测，如果接收到了任务信息，保存图像为gree/images/test/print_任务id_拍摄编号.ppm。
+如果没有接收到任务信息，保存图像为gree/images/test/unlisted__1.ppm
+
+# 参数
+成像参数：
+先测增益、曝光参数、白平衡参数
+增益为0时如果光照依旧过强，就调低曝光时间，自动调节白平衡
+将各参数复制到配置文件中
+
+检测参数：
+* 二值化参数: 看gree/Output/images/pos_X_X 图片不包含两侧档条。越大保留部分越白，越小保留部分颜色越深
+* 纸张纵向区域参数: 看gree/Output/images/pos_X_X 图片纵向是否重合
+* 样图两侧裁剪像素数: 看gree/Output/images/pos_X_X 图片横向是否重合

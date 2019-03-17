@@ -25,12 +25,34 @@
     "detection":{
         // 图像参数
         "img":{
+            // 图像尺寸
             "width": 5496,
-            "height": 3672
+            "height": 3672,
+            // 相机内参2000w
+            "k00":5.4686824475865678e+03,
+            "k02":2.8218132226974494e+03,
+            "k11":5.4339587375402944e+03,
+            "k12":1.7965269137752516e+03,
+            "d1":-5.9969522724538409e-02,
+            "d2":1.5747800609735992e-01,
+            "d3":-0.0007,
+            "d4":0
+            // 500w
+            // "k00": 2.6018847482168276e+03,
+            // "k02": 1.2348647217067462e+03,
+            // "k11": 2.5839182111365440e+03,
+            // "k12": 1.0295527041886703e+03,
+            // "d1": -1.1045765506977103e-01,
+            // "d2": 0,
+            // "d3": -5e-3,
+            // "d4": 0
+        },
+        "param":{
+            "scratch pixel": 3
         },
         // 阈值相关参数
         "thresh":{
-            "bin thresh": 50,
+            "bin thresh": 90,
             "k_pos": 0.25,
             "k_scratch": 0.12,
             "k_bigpro": 0.07
@@ -49,14 +71,19 @@
         // 文件路径
         "file":{
             // 原图路径
-            "template directory": "../images/templates/",
+            "template directory": "/home/miki0w0/gree/images/templates/",
             // 拍摄图像保存路径
-            "image directory": "../images/fault/"
+            "image directory": "/home/miki0w0/gree/images/fault/"
         },
         "ROI":{
-            "y":740,
-            "height":3770
+            "y":1200,
+            "height":3575
+            // "y":
             // "height":2250
+        },
+        "cut":{
+            "left": 10,
+            "right": 75
         }
     },
     // 通信参数

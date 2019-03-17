@@ -52,6 +52,9 @@ private:
     string img_dir_;
     int ROI_y_;
     int ROI_height_;
+    int left_cut_px_;
+    int right_cut_px_;
+    int scratch_pixel_num_;
 
     // 计数器
     int64_t count_;
@@ -110,7 +113,7 @@ protected:
     cv::Mat getLabelImg(Mat img);
     void getROI(cv::Mat image, cv::Mat &dst);
     cv::Mat LOG(Mat img);
-    void highConstract(Mat img, Mat & dst, int r);
+    void highConstract(Mat img, Mat & dst, int r, int type);
     cv::Mat search(Mat img, Mat templ);
     void saveImg(string pre, Mat img);
     int checkSize();

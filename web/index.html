@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!-- 本页面不考虑任务版本IE浏览器的兼容性 -->
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" type="text/css" href="/mystyle.css">
+    </head>
+    <body>
+        <div class="wrapper">
+            <div class="box left-container">
+                <div class="block">
+                    <div class="statement">
+                        当前任务编号:
+                    </div>
+                    <div class = "dynamic" id="cur_work_id">
+                        id
+                    </div>
+                </div>
+                <div class="block">
+                    <div class="statement">
+                        当前已拍摄:
+                    </div>
+                    <div class="dynamic" id="cur_cam">
+                        test
+                    </div>
+                    <div class="statement">
+                        当前已检测:
+                    </div>
+                    <div class="dynamic" id="cur_detect">
+                        test
+                    </div>
+                    <div class="statement">
+                        总页数: 
+                    </div>
+                    <div class="dynamic" id="cur_total_page">
+                        total
+                    </div>
+                </div>
+                <!-- TODO "搜索输入框" -->
+                <div class="block">
+                    <div class="statement">
+                        修正当前检测作业 
+                    </div>
+                    <input id="page_button" class="button" type = "button" value="设置页数"/>
+                    <input id="img_button" class="button" type = "button" value="查看图像"/>
+                </div>
+                <div>作业列表:</div>
+                <div class="block list-title">
+                    <div>work_id</div>
+                    <div>页数</div>
+                </div>
+                <!-- TODO "回到cur的按钮" -->
+                <ul>
+                    <li class="task-item">
+                        <div>id</div>
+                        <div>page</div>
+                    </li>
+                    <li class="task-item cur active">
+                        <div>id</div>
+                        <div>page</div>
+                    </li>
+                    <li class="task-item">
+                        <div>id</div>
+                        <div>page</div>
+                    </li>
+                    <li class="task-item">
+                        <div>id</div>
+                        <div>page</div>
+                    </li>
+                    <li class="task-item">
+                        <div>id</div>
+                        <div>page</div>
+                    </li>
+                    <!-- NOTE for test -->
+                    <li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li><li class="task-item"><div>id</div><div>page</div></li>
+                        
+                </ul>
+            </div>
+            
+            <div class="box right-container">
+                <div class="imgbox">
+                    原图
+                    <img id="origin-img" src="" alt="">
+                </div>
+                <div class="imgbox">
+                    拍摄图
+                    <img id="photo" src="" alt="">
+                </div>
+            </div>
+        </div>
+
+
+        <script src="updatedata.js"></script>
+    </body>
+</html>

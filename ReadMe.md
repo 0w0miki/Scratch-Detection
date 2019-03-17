@@ -117,12 +117,52 @@ make
 
 mono为黑白摄像头程序（第一道检测），运行时在终端输入
 ```
-sudo -E ~/gree/build/mono
+cd ~/gree/build
+sudo -E ./mono
 ```
 
 color为彩色摄像头程序（第二道检测）
 ```
-sudo -E ~/gree/build/color
+cd ~/gree/build
+sudo -E ./color
 ```
 
 图片存放在`~/gree/images`文件夹下， 其中`templates`文件夹存放原图模板，`test`文件夹存放拍摄到的图片。通过SMB服务将原图和拍摄图片取走。
+
+## 设置开机启动
+* 修改`/etc/rc.local`, 在**exit 0前**添加以下内容
+``` shell
+exec 2> /tmp/rc.local.log  # send stderr from rc.local to a log file  
+exec 1>&2                  # send stdout to the same log file  
+set -x                     # tell sh to display commands before execution
+
+export GENICAM_CACHE_V2_3=/usr/local/daheng/genicam_xml_cache
+export GENICAM_GENTL64_PATH=/usr/lib
+export GENICAM_ROOT_V2_3=/home/换成用户名/dhcam_install_20181107/dh_camera/daheng-sdk-x64/sdk/genicam
+export GENICAM_LOG_CONFIG_V2_3=$GENICAM_ROOT_V2_3/log/config-unix
+cd /home/换成用户名/gree/build
+sudo -E ./color
+```
+
+* 赋予`rc.local`执行权限
+```
+sudo chmod 777 /etc/rc.local
+```
+
+* 停止程序
+```
+systemctl stop rc-local.service
+```
+
+## 下载图片
+### 赋予下载脚本执行权限
+``` shell
+cd ~/gree
+chmod +x ./downloadpic.sh
+```
+### 添加定时任务
+```
+crontab -e
+```
+添加以下内容 每天0点10分执行复制工作
+10 00 * * * * ~/gree/downloadpic.sh smb原图路径

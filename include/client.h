@@ -79,6 +79,7 @@ public:
     int sendResult(std::string &sRec);
     //下载文件
     int downloadFile(const std::string& sFileName, const int nFormat);
+    int downloadFile(const std::string& sFileName, const std::string& sLocalFile, const int nFormat);
     //从文件中读取内容post出去
     int uploadFileContent(const std::string& sFileName, const int nFormat, std::string& sRec);
      //上传文件

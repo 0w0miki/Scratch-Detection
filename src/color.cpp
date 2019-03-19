@@ -10,6 +10,7 @@
 #include "client.h"
 #include "Serial.h"
 
+
 // 初始化HttpServer静态类成员
 mg_serve_http_opts HttpServer::s_server_option;
 std::string HttpServer::s_web_dir = "../web";
@@ -59,8 +60,6 @@ int downloadFileList(std::vector<string> file_list){
 	
 	//下载文件名
 	for(auto &file_url:file_list){
-		//设置路径
-		// TO DO: 修改请求url
 		std::string sUrlPath = "/" + file_url;
 
 		cout<<"url path"<<file_url<<endl;
@@ -69,9 +68,22 @@ int downloadFileList(std::vector<string> file_list){
 		std::string sFileName = "../images/templates/";
 		sFileName.append(file_url);
 		int nFormat = 0;
-		std::cout<<sFileName<<std::endl;
-		nCode = pCurlClient->downloadFile(sFileName, nFormat);
-		printf("%d\n", nCode);
+
+		std::string sLocalFile = "../images/templates/";
+		std::vector<std::string> substring;
+		SplitString(file_url,substring,"/");
+		int sublen = substring.size();
+		if( sublen < 2 ){
+			printf("[ERROR] cannot split download filename");
+		}else{
+			std::cout<<sFileName<<std::endl;
+			sLocalFile.append(substring[sublen-2]);
+			sLocalFile.append("/");
+			sLocalFile.append(substring[sublen-1]);
+			nCode = pCurlClient->downloadFile(sFileName, sLocalFile, nFormat);
+			// nCode = pCurlClient->downloadFile(sFileName, nFormat);
+			printf("%d\n", nCode);
+		}
 	}
 		
 	delete pCurlClient;
@@ -103,6 +115,18 @@ bool handle_result(std::string url, std::string body, mg_connection *c, OnRspCal
 	// }
 
 	rsp_callback(c, "1");
+
+	return true;
+}
+
+bool handle_refresh(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
+	std::cout << "handle refresh" << std::endl;
+	std::cout << "url: " << url << std::endl;
+	std::cout << "body: " << body << std::endl;
+
+	
+
+	rsp_callback(c, "\"100\"");
 
 	return true;
 }
@@ -331,10 +355,11 @@ int main(int argc, char *argv[])
 	std::shared_ptr<HttpServer> http_server = std::shared_ptr<HttpServer>(new HttpServer);
 	http_server->Init(port);
 	
-	// add handler
+	// add handlerhandle_refresh
 	http_server->AddHandler("/api/start_signal", handle_signal);
-	http_server->AddHandler("/api/result", handle_result);
+	http_server->AddHandler("/api/Print/addErrorReport", handle_result);
 	http_server->AddHandler("/api/start", handle_start);
+	http_server->AddHandler("/api/refreshdata", handle_refresh);
 	pthread_create(&server_thread_id, NULL, startServer, (void*)&http_server);
 	pthread_detach(server_thread_id);
 
@@ -347,16 +372,8 @@ int main(int argc, char *argv[])
 					&unsolved_list, 
 					&work_name_list, 
 					&work_count_list);
-	// Detector firstDetector(	&fst_slv_list_mutex, 
-	// 						&result_mutex, 
-	// 						fst_result_root, 
-	// 						&unsolved_list, 
-	// 						&work_name_list, 
-	// 						&work_count_list, 
-	// 						&batch_origin_list, 
-	// 						&batch_count_list, 
-	// 						first_thread_id);
-    Detector secondDetector(&slv_list_mutex, 
+
+    Detector colorDetector(&slv_list_mutex, 
 							&result_mutex, 
 							result_root, 
 							&unsolved_list, 
@@ -369,31 +386,23 @@ int main(int argc, char *argv[])
     camera.init();
     camera.applyParam();
     camera.setTrigger(HARD_TRIGGER);
-
-
-	// firstDetector.setParam();
-	// firstDetector.setCameraPtr(&camera);
-	// firstDetector.setSerialPtr(result_serial);
 	
-    secondDetector.setParam();
-	secondDetector.setCameraPtr(&camera);
-	secondDetector.setSerialPtr(result_serial);
+    colorDetector.setParam();
+	colorDetector.setCameraPtr(&camera);
+	colorDetector.setSerialPtr(result_serial);
 
 	// 发送开采命令
 	int ret = 0;
     ret = camera.start();
     if(ret != 0) printf("[WARN] failed to start camera");
 
-	// ret = firstDetector.launchThread();
-	// if(ret != 0) printf("[WARN] failed to launch detection");
-
-    ret = secondDetector.launchThread();
+    ret = colorDetector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
 	// std::cout << "test file dir: " << isDirExist("") << std::endl;
     printf("====================Menu================\n");
     printf("[X or x]:Exit\n");
-    // printf("[S or s]:Send softtrigger command\n");
+    printf("[S or s]:Send softtrigger command\n");
 	printf("[C or c]:Push back unsolved list\n");
 
 	bool run = true;
@@ -406,7 +415,7 @@ int main(int argc, char *argv[])
             case 'X':
             case 'x':
                 run = false;
-				secondDetector.stopThread();
+				colorDetector.stopThread();
 				std::cout<<"camera stop status: "<<camera.stop()<<std::endl;
                 break;
             case 'c':
@@ -414,11 +423,11 @@ int main(int argc, char *argv[])
                 unsolved_list.push("print_1_0_test.ppm");
                 break;
             //发送一次软触发命令
-            // case 'S':
-            // case 's':
-            //     ret = camera.sendSoftTrigger();
-            //     printf("<The return value of softtrigger command: %d>\n", ret);
-            //     break;
+            case 'S':
+            case 's':
+                ret = camera.sendSoftTrigger();
+                printf("<The return value of softtrigger command: %d>\n", ret);
+                break;
 
             default:
                 break;

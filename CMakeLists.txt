@@ -10,8 +10,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3" )
 SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -std=c++11 -O0 -Wall -g -ggdb")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
-# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules)
-# message(${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules)
+message(${CMAKE_MODULE_PATH})
 find_package(OpenCV 3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
@@ -53,15 +53,15 @@ set(CAMERALIBS
 )
 
 add_library(Camera SHARED 
-    src/CameraUtils.cpp
-    src/Camera.cpp
+    src/camera/CameraUtils.cpp
+    src/camera/Camera.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(Camera ${CAMERALIBS})
 
 add_library(Detection SHARED
-    src/Detector.cpp
-    src/DetectUtils.cpp
+    src/detection/Detector.cpp
+    src/detection/DetectUtils.cpp
     src/utils.cpp
     src/Serial.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
@@ -72,12 +72,89 @@ target_link_libraries(Detection
 )
 
 add_library(Client SHARED
-    src/client.cpp
+    src/web/http_client.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(Client ${CURL_LIBRARY})
 
-# demo for camera
+add_library(System SHARED
+    src/System.cpp
+    src/web/http_server.cpp
+    src/utils.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(System
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+    Client
+)
+
+add_library(Log
+    src/Log.cpp
+)
+target_link_libraries(Log
+    Threads::Threads
+)
+
+# NOTE RELEASE
+add_executable(server_demo
+    test/server_demo.cpp
+    src/web/http_server.cpp
+    src/utils.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(server_demo
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+    Client
+)
+
+add_executable(color
+    src/color.cpp
+    src/web/http_server.cpp
+    src/utils.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(color
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+    Client
+)
+
+# NOTE TEST
+add_executable(mono_demo
+    test/mono_demo.cpp
+    src/web/http_server.cpp
+    src/utils.cpp
+    src/Serial.cpp
+    third_party/mongoose/mongoose.c
+    third_party/jsoncpp/src/jsoncpp.cpp
+)
+target_link_libraries(mono_demo
+    ${CURL_LIBRARY}
+    ${OpenCV_LIBS}
+    Camera
+    Detection
+    Client
+)
+
+add_executable(serial_demo
+    test/serial.cpp
+    src/Serial.cpp
+)
+
 add_executable(CameraDemo 
     test/camera_demo.cpp
 )
@@ -86,25 +163,12 @@ target_link_libraries(CameraDemo
     Camera
 )
 
-# demo for detector
 add_executable(DetectDemo 
     test/detect_demo.cpp
 )
 target_link_libraries(DetectDemo
     Threads::Threads
     ${OpenCV_LIBS}
-    Detection
-)
-
-add_executable(Demo 
-    src/demo.cpp
-    src/utils.cpp
-    src/client.cpp
-)
-target_link_libraries(Demo
-    # ${CAMERALIBS}
-    ${OpenCV_LIBS}
-    Camera
     Detection
 )
 
@@ -118,76 +182,16 @@ target_link_libraries(url_demo
     Threads::Threads
 )
 
-AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpserver httpserver)
-add_executable(server
-    ${httpserver}
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
+add_executable(system_test
+    test/system_test.cpp
+)
+target_link_libraries(system_test
+    System
 )
 
-AUX_SOURCE_DIRECTORY(src/CppHttpDemo/httpclient httpclient)
-add_executable(client_demo
-    ${httpclient}
-    third_party/mongoose/mongoose.c
+add_executable(logtest
+    test/log_test.cpp
 )
-
-add_executable(server_demo
-    test/server_demo.cpp
-    src/http_server.cpp
-    src/utils.cpp
-    src/client.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(server_demo
-    ${CURL_LIBRARY}
-    ${OpenCV_LIBS}
-    Camera
-    Detection
-)
-
-add_executable(color
-    src/color.cpp
-    src/http_server.cpp
-    src/utils.cpp
-    src/client.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(color
-    ${CURL_LIBRARY}
-    ${OpenCV_LIBS}
-    Camera
-    Detection
-)
-
-add_executable(mono_demo
-    test/mono_demo.cpp
-    src/http_server.cpp
-    src/utils.cpp
-    src/client.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(mono_demo
-    ${CURL_LIBRARY}
-    ${OpenCV_LIBS}
-    Camera
-    Detection
-)
-
-add_executable(serial_demo
-    test/serial.cpp
-    src/Serial.cpp
-)
-
-add_executable(calibration
-    src/calibration.cpp
-    
-)
-target_link_libraries(calibration
-    ${CAMERALIBS}
+target_link_libraries(logtest
+    Log
 )

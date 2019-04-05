@@ -30,6 +30,7 @@ int Serial::setBaudRate(const int baud_rate){
     *@param databits 类型 int 数据位 取值 为 7 或者8 
     *@param stopbits 类型 int 停止位 取值为 1 或者2 
     *@param parity 类型 int 效验类型 取值为N,E,O,S 
+    * 只有 8N1 7E1 7EO 7ES
 **/ 
 int Serial::setParity(const int databits, const int stopbits, const int parity){
     struct termios options; 
@@ -91,7 +92,7 @@ int Serial::setParity(const int databits, const int stopbits, const int parity){
     if (parity != 'n') 
         options.c_iflag |= INPCK; 
     tcflush(fd_,TCIFLUSH); 
-    options.c_cc[VTIME] = 150; 
+    options.c_cc[VTIME] = 1; 
     /* 设置超时15 seconds*/ 
     options.c_cc[VMIN] = 0; 
     /* Update the options and do it NOW */ 

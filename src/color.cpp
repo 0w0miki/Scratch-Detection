@@ -151,7 +151,7 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 				int64_t work_count = root["printwork"][i]["printQuantity"].asInt64();
 				// 判断文件夹是否存在
 				std::string origin_dir = "../images/templates/";
-				// origin_dir.append(to_string(work_id));
+				origin_dir.append(to_string(work_id));
 				if(isDirExist(origin_dir) == -1){
 					// 下载所有原图，返回错误
 					return_state = -1;

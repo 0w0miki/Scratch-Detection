@@ -175,6 +175,8 @@ int http_get_json(const char *url){
     return 0;
 }
 
+
+
 int readBatchFile(std::string filename, 
     std::deque<std::string> &work_name_list, 
     std::deque<int64_t> &work_count_list, 
@@ -249,10 +251,9 @@ int readBatchFile(std::string filename,
     return 0;
 }
 
-
 /** 
  * @brief           分词
- * 
+ * @param           string s  字符串
  * @param           vector<>v 结果
  * @param           string c  分割字符
  */

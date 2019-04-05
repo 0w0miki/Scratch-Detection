@@ -1,5 +1,5 @@
-#if !defined(CLIENT_H)
-#define CLIENT_H
+#if !defined(UTILS_H_)
+#define UTILS_H_
 
 #include <curl/curl.h>
 #include <stdio.h>
@@ -17,8 +17,10 @@ struct thread_param
 {
     Json::Value* root;
     pthread_mutex_t* mutex;
+    std::string host;
+    std::string url;
+    unsigned int port;
 };
-
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream);
 int http_post_file(const char *url, const char *filename);
@@ -31,4 +33,4 @@ void SplitString(const std::string& s, std::vector<std::string>& v, const std::s
 int isDirExist(const std::string dir_path);
 void wait(int time_ns);
 
-#endif // CLIENT_H
+#endif // UTILS_H_

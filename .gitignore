@@ -13,6 +13,7 @@ CTestTestfile.cmake
 *.jpg
 *.JPG
 *.bmp
+*.csv
 
 build
 lib
@@ -20,3 +21,8 @@ Monocolor
 Output
 images
 USB2485
+
+
+log
+# fix for vscode
+ipch

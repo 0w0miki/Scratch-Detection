@@ -1,6 +1,6 @@
 #include "Camera.h"
 #include "Detector.h"
-#include "client.h"
+#include "http_client.h"
 
 int readBatchFile(std::string filename, std::vector<std::vector<ROI>> &batch_ROI_list, std::deque<std::string> &batch_origin_list, std::deque<int64_t> &batch_count_list, std::vector<cv::Point2i> &desired_size_list){
     std::ifstream batch_file;

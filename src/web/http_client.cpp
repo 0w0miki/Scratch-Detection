@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include "client.h"
+#include "http_client.h"
  
 bool CurlClient::s_bGlobalInitStatus = 0;
 pthread_mutex_t CurlClient::s_MutexLock;

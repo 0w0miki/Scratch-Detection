@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "Camera.h"
 #include "Detector.h"
-#include "client.h"
+#include "http_client.h"
 #include "Serial.h"
 
 // 初始化HttpServer静态类成员
@@ -23,6 +23,7 @@ std::deque<int64_t> batch_count_list;
 static std::string client_host;
 static int server_port;
 static int client_port;
+std::string result_url;
 
 /*
 	* 下载文件
@@ -62,9 +63,16 @@ int downloadFileList(std::vector<string> file_list){
 	pCurlClient->setUrlPath(sUrlPath);
 	
 	//下载文件名
-	for(int i; i < file_list.size(); i++){
+	for(auto &file_url:file_list){
+		//设置路径
+		// TODO: 修改请求url
+		std::string sUrlPath = "/" + file_url;
+
+		cout<<"url path"<<file_url<<endl;
+
+		pCurlClient->setUrlPath(sUrlPath);
 		std::string sFileName = "../images/templates/";
-		sFileName.append(file_list[i]);
+		sFileName.append(file_url);
 		int nFormat = 0;
 		std::cout<<sFileName<<std::endl;
 		nCode = pCurlClient->downloadFile(sFileName, nFormat);
@@ -137,6 +145,14 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 					batch_origin_list.push_back(root["printwork"][i]["pictureLink"].asString());
 					if(return_state == -1)
 						download_list.push_back(root["printwork"][i]["pictureLink"].asString());
+					else{
+						std::string filename = origin_dir + root["printwork"][i]["pictureLink"].asString();
+						if(access(filename.c_str(),F_OK) == -1){
+							return_state = -3;
+							download_list.push_back(root["printwork"][i]["pictureLink"].asString());
+							std::cout << "[WARN] " << filename << " does not exist, try to download" << endl;
+						}
+					}
 					std::cout << "set batch num: " << work_count << std::endl;
 					std::cout << "set origin image url" << root["printwork"][i]["pictureLink"].asString() <<std::endl;
 					std::string work_name = "print_";
@@ -174,10 +190,17 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 						batch_count_list.push_back(1);
 						batch_origin_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
 						if(return_state == -1){
-							std::string down_filename = to_string(work_id);
-							down_filename.append("/");
-							down_filename.append(root["printwork"][i]["pictureLink"][j].asString());
+							std::string down_filename;
+							// down_filename.append("/");
+							down_filename = root["printwork"][i]["pictureLink"][j].asString();
 							download_list.push_back(down_filename);
+						}else{
+							std::string filename = origin_dir + root["printwork"][i]["pictureLink"][j].asString();
+							if(access(filename.c_str(),F_OK) == -1){
+								return_state = -3;
+								download_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
+								std::cout << "[WARN]" << filename << "does not exist, try to download" << endl;
+							}
 						}
 						std::cout << "set batch num: " << 1 << std::endl;
 						std::cout << "set origin image url" << root["printwork"][i]["pictureLink"][j].asString() <<std::endl;
@@ -239,7 +262,7 @@ void* post_result(void *arg){
     }
     
     //设置路径
-    std::string sUrlPath = "/api/result";
+    std::string sUrlPath = result_url;;
     pCurlClient->setUrlPath(sUrlPath);
     
     std::string res="";
@@ -273,6 +296,7 @@ int readNetParam(){
 			client_host = root["communication"]["client_host"].empty() ? "127.0.0.1" : root["communication"]["client_host"].asString();
 			server_port = root["communication"]["server_port"].empty() ? 7999 : root["communication"]["server_port"].asInt();
 			client_port = root["communication"]["client_port"].empty() ? 7999 : root["communication"]["client_port"].asInt();
+			result_url  = root["communication"]["result_url"].empty() ? "/api/Print/addErrorReport" : root["communication"]["result_url"].asString();
 			cout << client_host<<":"<<client_port<<","<<server_port << endl;
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
@@ -328,15 +352,7 @@ int main(int argc, char *argv[])
 					&unsolved_list, 
 					&work_name_list, 
 					&work_count_list);
-	// Detector firstDetector(	&fst_slv_list_mutex, 
-	// 						&result_mutex, 
-	// 						fst_result_root, 
-	// 						&unsolved_list, 
-	// 						&work_name_list, 
-	// 						&work_count_list, 
-	// 						&batch_origin_list, 
-	// 						&batch_count_list, 
-	// 						first_thread_id);
+					
     Detector monoDetector(&slv_list_mutex, 
 							&result_mutex, 
 							result_root, 
@@ -349,11 +365,6 @@ int main(int argc, char *argv[])
     camera.init();
     camera.setTrigger(HARD_TRIGGER);
     camera.applyParam();
-
-
-	// firstDetector.setParam();
-	// firstDetector.setCameraPtr(&camera);
-	// firstDetector.setSerialPtr(result_serial);
 	
     monoDetector.setParam();
 	monoDetector.setCameraPtr(&camera);
@@ -364,16 +375,13 @@ int main(int argc, char *argv[])
     ret = camera.start();
     if(ret != 0) printf("[WARN] failed to start camera");
 
-	// ret = firstDetector.launchThread();
-	// if(ret != 0) printf("[WARN] failed to launch detection");
-
     ret = monoDetector.launchThread();
     if(ret != 0) printf("[WARN] failed to launch detection");
 
 	// std::cout << "test file dir: " << isDirExist("") << std::endl;
     printf("====================Menu================\n");
     printf("[X or x]:Exit\n");
-    // printf("[S or s]:Send softtrigger command\n");
+    printf("[S or s]:Send softtrigger command\n");
 	printf("[C or c]:Push back unsolved list\n");
 
 	bool run = true;
@@ -394,11 +402,11 @@ int main(int argc, char *argv[])
                 unsolved_list.push("print_1_0_test.ppm");
                 break;
             //发送一次软触发命令
-            // case 'S':
-            // case 's':
-            //     ret = camera.sendSoftTrigger();
-            //     printf("<The return value of softtrigger command: %d>\n", ret);
-            //     break;
+            case 'S':
+            case 's':
+                ret = camera.sendSoftTrigger();
+                printf("<The return value of softtrigger command: %d>\n", ret);
+                break;
 
             default:
                 break;

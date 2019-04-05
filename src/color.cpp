@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "Camera.h"
 #include "Detector.h"
-#include "client.h"
+#include "http_client.h"
 #include "Serial.h"
 
 

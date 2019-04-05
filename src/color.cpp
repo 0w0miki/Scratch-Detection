@@ -114,7 +114,7 @@ bool handle_result(std::string url, std::string body, mg_connection *c, OnRspCal
 	// 	printf("char %x", body.c_str()[i]);
 	// }
 
-	rsp_callback(c, "1");
+	rsp_callback(c, "{ \"StatusCode\": \"100\" }");
 
 	return true;
 }
@@ -126,7 +126,7 @@ bool handle_refresh(std::string url, std::string body, mg_connection *c, OnRspCa
 
 	
 
-	rsp_callback(c, "\"100\"");
+	rsp_callback(c, "{ \"StatusCode\": 100 }");
 
 	return true;
 }
@@ -157,15 +157,29 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 					return_state = -1;
 					mkdir(origin_dir.c_str(),S_IRWXU|S_IRWXG|S_IRWXO);
 				}
-				
+				origin_dir = "../images/templates/";
 				if(root["printwork"][i]["pictureLink"].isString()){
 					// 图像是string 所有都是这个图
+					std::string file_url = root["printwork"][i]["pictureLink"].asString();
+					
+					std::string localfile="";
+					std::vector<std::string> substring;
+					SplitString(file_url,substring,"/");
+					int sublen = substring.size();
+					if( sublen < 2 ){
+						printf("[ERROR] cannot split download filename");
+					}else{
+						localfile.append(substring[sublen-2]);
+						localfile.append("/");
+						localfile.append(substring[sublen-1]);
+					}
+					
 					batch_count_list.push_back(work_count);
-					batch_origin_list.push_back(root["printwork"][i]["pictureLink"].asString());
+					batch_origin_list.push_back(localfile);
 					if(return_state == -1)
 						download_list.push_back(root["printwork"][i]["pictureLink"].asString());
 					else{
-						std::string filename = origin_dir + root["printwork"][i]["pictureLink"].asString();
+						std::string filename = origin_dir + localfile;
 						if(access(filename.c_str(),F_OK) == -1){
 							return_state = -3;
 							download_list.push_back(root["printwork"][i]["pictureLink"].asString());
@@ -206,15 +220,29 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 							std::cout << "set work name:" << work_name <<std::endl;
 							std::cout << "set work count:" << 1 << std::endl;
 						}
+						std::string file_url = root["printwork"][i]["pictureLink"][j].asString();
+						std::string localfile="";
+
+						std::vector<std::string> substring;
+						SplitString(file_url,substring,"/");
+						int sublen = substring.size();
+						if( sublen < 2 ){
+							printf("[ERROR] cannot split download filename");
+						}else{
+							localfile.append(substring[sublen-2]);
+							localfile.append("/");
+							localfile.append(substring[sublen-1]);
+						}
+
 						batch_count_list.push_back(1);
-						batch_origin_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
+						batch_origin_list.push_back(localfile);
 						if(return_state == -1){
 							std::string down_filename;
 							// down_filename.append("/");
 							down_filename = root["printwork"][i]["pictureLink"][j].asString();
 							download_list.push_back(down_filename);
 						}else{
-							std::string filename = origin_dir + root["printwork"][i]["pictureLink"][j].asString();
+							std::string filename = origin_dir + localfile;
 							if(access(filename.c_str(),F_OK) == -1){
 								return_state = -3;
 								download_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
@@ -235,7 +263,7 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 		std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
 	}
 	
-	rsp_callback(c, to_string(return_state));
+	rsp_callback(c, "{ \"StatusCode\":" + to_string(return_state) + "}");
 
 	if(return_state == -1 || return_state == -3){
 		sleep(1);
@@ -256,8 +284,8 @@ void* post_result(void *arg){
     Json::Value* result_root = param_ptr->root;
     pthread_mutex_t* result_mutex = param_ptr->mutex;
     int nCode = -1;
-    std::string sIP = client_host;
-    unsigned int nPort = client_port;
+    std::string sIP = param_ptr->host;
+    unsigned int nPort = param_ptr->port;
     std::string sUser = "";   //可为空
     std::string sPwd = "";	  //可为空	
 
@@ -281,7 +309,7 @@ void* post_result(void *arg){
     }
     
     //设置路径
-    std::string sUrlPath = result_url;
+    std::string sUrlPath = param_ptr->url;
     pCurlClient->setUrlPath(sUrlPath);
     
     std::string res="";
@@ -347,6 +375,9 @@ int main(int argc, char *argv[])
     thread_param post_thread_param;
     post_thread_param.root = result_root;
     post_thread_param.mutex = &result_mutex;
+	post_thread_param.host = client_host;
+	post_thread_param.port = client_port;
+	post_thread_param.url = result_url;
 	// 错误回报线程
     pthread_create(&post_thread_id, NULL, post_result, (void*)&post_thread_param);
 	pthread_detach(post_thread_id);
@@ -420,7 +451,7 @@ int main(int argc, char *argv[])
                 break;
             case 'c':
             case 'C':
-                unsolved_list.push("print_1_0_test.ppm");
+                unsolved_list.push("a.bmp");
                 break;
             //发送一次软触发命令
             case 'S':

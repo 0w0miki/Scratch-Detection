@@ -114,7 +114,7 @@ bool handle_result(std::string url, std::string body, mg_connection *c, OnRspCal
 	// 	printf("char %x", body.c_str()[i]);
 	// }
 
-	rsp_callback(c, "\"100\"");
+	rsp_callback(c, "{ \"StatusCode\": \"100\"}");
 
 	return true;
 }
@@ -251,7 +251,7 @@ bool handle_start(std::string url, std::string body, mg_connection *c, OnRspCall
 		std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
 	}
 	
-	rsp_callback(c, to_string(return_state));
+	rsp_callback(c, "{ \"StatusCode\": "+to_string(return_state)+"}");
 
 	if(return_state == -1 || return_state == -3){
 		sleep(1);

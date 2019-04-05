@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include <functional>
 #include "mongoose.h"
@@ -9,6 +10,14 @@
 typedef void OnRspCallback(mg_connection *c, std::string);
 // 定义http请求handler
 using ReqHandler = std::function<bool (std::string, std::string, mg_connection *c, OnRspCallback)>;
+
+enum{
+	REQ_ERR,
+	REQ_GET,
+	REQ_POST,
+	REQ_PUT,
+	REQ_DELETE
+};
 
 class HttpServer
 {
@@ -29,6 +38,7 @@ private:
 	static void OnHttpEvent(mg_connection *connection, int event_type, void *event_data);
 	static void HandleEvent(mg_connection *connection, http_message *http_req);
 	static void SendRsp(mg_connection *connection, std::string rsp);
+	std::vector<std::string> m_local_res_list; // 存储本地静态资源列表
 
 	std::string m_port;    // 端口
 	mg_mgr m_mgr;          // 连接管理器

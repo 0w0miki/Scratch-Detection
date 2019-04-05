@@ -640,6 +640,30 @@ void cutRatio(Mat &img, float ratio, int direction){
     img = img(part);
 }
 
+void cutPx(Mat &img, int px, int direction){
+    int height = img.rows;
+    int width = img.cols;
+    Rect part(0,0,width,height);
+    switch (direction)
+    {
+        case CUT_VERTICAL_HEAD:
+            part.height = static_cast<int>(height - px);
+            part.y = static_cast<int>(px);
+            break;
+        case CUT_VERTICAL_TAIL:
+            part.height = static_cast<int>(height - px);
+            break;
+        case CUT_HORIZON_LEFT:
+            part.width = static_cast<int>(width - px);
+            part.x = static_cast<int>(px);
+            break;
+        case CUT_HORIZON_RIGHT:
+            part.width = static_cast<int>(width - px);
+            break;
+    }
+    img = img(part);
+}
+
 /**
  * @brief           获取纸张部分ROI
  * 
@@ -698,9 +722,9 @@ Mat getPaper(Mat src_img, Mat& roi_img)
 			}
 
             warpAffine(src_img, rot_img, rotation, image_size);
-			// namedWindow("rot_img", WINDOW_NORMAL);
-			// imshow("rot_img", rot_img);
-            // waitKey();
+			namedWindow("rot_img", WINDOW_NORMAL);
+			imshow("rot_img", rot_img);
+            waitKey();
 
             // printf("x %d, y %d, width %d, height %d",imgx,imgy,imgwidth, imgheight);
             cout<<roi_img.size()<<endl;

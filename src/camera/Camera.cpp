@@ -741,13 +741,13 @@ int Camera::setTrigger(int type){
                 case TRIGER_FALLING:
                     //设置触发激活方式为下降沿
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_FALLINGEDGE);
-                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_FALLING, 1000);
+                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_FALLING, 0);
                     printf(" fall");
                     break;
                 case TRIGER_RISING:
                     //设置触发激活方式为上升沿
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_RISINGEDGE);
-                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_RAISING, 1000);
+                    status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_RAISING, 0);
                     printf(" rise");
                     break;
             }

@@ -18,6 +18,7 @@ Detector::Detector():
     d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
+    scratch_pixel_num_(3),
     count_(1),
     id_(1)
 {
@@ -51,6 +52,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
+    scratch_pixel_num_(3),
     count_(1),
     id_(1)
 {
@@ -92,6 +94,7 @@ Detector::Detector(
     d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
+    scratch_pixel_num_(3),
     count_(1),
     id_(1)
 {
@@ -144,6 +147,7 @@ Detector::Detector(
     d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
+    scratch_pixel_num_(3),
     count_(1),
     id_(1)
 {
@@ -711,16 +715,20 @@ Mat Detector::LOG(Mat img) {
 \return void
 */ 
 //-------------------------------------------------
-void Detector::highConstract(Mat img, Mat & dst, int r) {
+void Detector::highConstract(Mat img, Mat & dst, int r, int type) {
     Mat dil,ero,temp,diff1,diff;
-    Dilation(img, dil,0,2);
-    Erosion(dil, ero,0,2);
-    absdiff(dil,ero,diff1);
-    adaptiveThreshold(img, temp, 255, CV_ADAPTIVE_THRESH_MEAN_C, CV_THRESH_BINARY_INV, 51, 8);
-    GaussianBlur(temp, temp, Size(11,11),1.4,1.4);
+    // Dilation(img, dil,0,2);
+    // Erosion(dil, ero,0,2);
+    // absdiff(dil,ero,diff1);
+    // equalizeHist(img,temp);
+    // adaptiveThreshold(img, temp, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 27, 2*type);
+    // threshold(img,temp, 0, 255, THRESH_OTSU);//最大类间方差法分割 Otsu algorithm to choose the optimal threshold value
     // namedWindow("temp",CV_WINDOW_NORMAL);
     // imshow("temp",temp);
     // waitKey();
+
+    GaussianBlur(img, temp, Size(11,11),1.4,1.4);
+    
     dst = img + r*(img-temp);
 
     /********white********/ 
@@ -756,13 +764,19 @@ int Detector::checkPos() {
     auto t_checkPos_bef = chrono::system_clock::now();
     cv::Mat adjust_match;
     cv::Mat diff;
+    cv::Mat bordered_img;
     vector<Mat> mats;
+    // 得到N×N-1个平移矩阵
     int i,j;
-    for(i=0;i<N;i++){
-        for(j=0;j<N;j++){
-            Mat mat;
-            mat= Mat::zeros(img_gray_.rows, img_gray_.cols, CV_8U);
-            image_transfrom(img_gray_, mat,j-1,i-1);
+    int step = N/2;
+    // 扩充边界为图像边缘
+    copyMakeBorder(img_gray_,bordered_img,step,step,step,step,cv::BORDER_REFLECT101);
+    for(i = -step; i <= step; ++i){
+        for(j = -step; j <= step; ++j){
+            Mat A = bordered_img.clone();
+            // 移动
+            Mat mat = A(Range(step+i,img_gray_.rows+step+i),Range(step+j,step+img_gray_.cols+j));
+            
             absdiff(template_img_, mat, diff);
             diff.convertTo(diff,CV_64F);
             diff=diff.mul(diff);
@@ -862,19 +876,23 @@ int Detector::checkScratch() {
     auto t_scratch_bef = chrono::system_clock::now();
     show_time_switch_;
     Mat common,A,B,template_label_bin,diff_white,diff;
-    threshold(template_label_,template_label_bin,240,255,0);
     /****************** white ******************/
     // 检测有颜色部分的瑕疵 以白色底时黑色部分的不同
-    highConstract(255 - template_label_,A,0.7);
-    highConstract(255 - label_,B,0.7);
-    threshold(A,A,180,255,1);
-    threshold(B,B,180,255,1);
+    highConstract(255 - template_label_, A, 3 , -1);
+    highConstract(255 - label_, B, 3, -1);
     // namedWindow("template_label_",CV_WINDOW_NORMAL);
     // imshow("template_label_",A);
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
     // waitKey();
-    common = getCommon(A,B,3);
+    threshold(A,A,150,255,cv::THRESH_BINARY);
+    threshold(B,B,180,255,cv::THRESH_BINARY);
+    namedWindow("template_label_",CV_WINDOW_NORMAL);
+    imshow("template_label_",A);
+    namedWindow("label_",CV_WINDOW_NORMAL);
+    imshow("label_",B);
+    waitKey();
+    common = getCommon(A,B,scratch_pixel_num_);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
     // waitKey();
@@ -884,21 +902,21 @@ int Detector::checkScratch() {
     // waitKey();
     /****************** black ******************/
     // 检测白色部分的瑕疵 以黑色底时白色部分的不同
-    highConstract(template_label_,A,3);
-    highConstract(label_,B,3);
+    highConstract(template_label_,A,3,1);
+    highConstract(label_,B,3,1);
     // namedWindow("template_label_",CV_WINDOW_NORMAL);
     // imshow("template_label_",A);
     // namedWindow("label_",CV_WINDOW_NORMAL);
     // imshow("label_",B);
     // waitKey();
-    threshold(A,A,240,255,1);
-    threshold(B,B,240,255,1);
-    // namedWindow("template_label_",CV_WINDOW_NORMAL);
-    // imshow("template_label_",A);
-    // namedWindow("label_",CV_WINDOW_NORMAL);
-    // imshow("label_",B);
-    // waitKey();
-    common = getCommon(A,B,3);
+    threshold(A,A,240,255,cv::THRESH_BINARY);
+    threshold(B,B,150,255,cv::THRESH_BINARY);
+    namedWindow("template_label_",CV_WINDOW_NORMAL);
+    imshow("template_label_",A);
+    namedWindow("label_",CV_WINDOW_NORMAL);
+    imshow("label_",B);
+    waitKey();
+    common = getCommon(A,B,scratch_pixel_num_);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
     // waitKey();
@@ -1013,7 +1031,9 @@ int Detector::setOriginImg(string filename){
         cout<<"[ERROR] No source image!!!"<<endl;
         return -1;
     }
-
+    // 裁切一些
+    cutPx(template_img_,left_cut_px_,CUT_HORIZON_LEFT);
+    cutPx(template_img_,right_cut_px_,CUT_HORIZON_RIGHT);
     if(input_type_ & DETECTA4){
         template_label_ = template_img_;
     }else{
@@ -1037,6 +1057,10 @@ int Detector::setOriginImg(cv::Mat img){
         cout<<"[ERROR] No source image!!!"<<endl;
         return -1;
     }
+    // 裁切一些
+    cutPx(img,left_cut_px_,CUT_HORIZON_LEFT);
+    cutPx(img,right_cut_px_,CUT_HORIZON_RIGHT);
+
     template_img_ = img;
     if(input_type_ & DETECTA4){
         template_label_ = template_img_;
@@ -1094,9 +1118,9 @@ int Detector::setImg(string filename){
     cout<<img.size()<<endl;
     cout<<ROI.y<<","<<ROI.height<<endl;
     img_gray_ = img(ROI);
-    // namedWindow("img",WINDOW_NORMAL);
-    // imshow("img",img_gray_);
-    // waitKey();
+    namedWindow("img",WINDOW_NORMAL);
+    imshow("img",img_gray_);
+    waitKey();
 
     label_ = img_gray_;
     adjustSize(img_gray_, template_label_);
@@ -1178,7 +1202,11 @@ int Detector::launchThread(){
 }
 
 int Detector::setParam(){
-	std::ifstream paramfile;
+
+    Mat K = Mat::zeros(3,3,CV_32FC1); 
+    Mat D = Mat::zeros(1,4,CV_32FC1); 
+	
+    std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
     int img_width, img_height;
     if(!paramfile){
@@ -1194,17 +1222,32 @@ int Detector::setParam(){
             k_pos_      = root["detection"]["thresh"]["k_pos"].empty()       ?  k_pos_       :  root["detection"]["thresh"]["k_pos"].asFloat();
             k_scratch_  = root["detection"]["thresh"]["k_scratch"].empty()   ?  k_scratch_   :  root["detection"]["thresh"]["k_scratch"].asFloat();
             k_bigpro_   = root["detection"]["thresh"]["k_bigpro"].empty()    ?  k_bigpro_    :  root["detection"]["thresh"]["k_bigpro"].asFloat();
-            save_img_switch_ = root["detection"]["switch"]["save img"].empty()           ? save_img_switch_    : root["detection"]["switch"]["save img"].asBool();
-            save_result_switch_ = root["detection"]["switch"]["save result log"].empty() ? save_result_switch_ : root["detection"]["switch"]["save result log"].asBool();
-            show_time_switch_ = root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
-            template_dir_ = root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
-            img_dir_ = root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
-            input_type_ |= root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
-            ROI_y_ = root["detection"]["ROI"]["y"].empty() ? ROI_y_ : root["detection"]["ROI"]["y"].asInt();
-            ROI_height_ = root["detection"]["ROI"]["height"].empty() ? ROI_height_ : root["detection"]["ROI"]["height"].asInt();
+            input_type_ |=          root["detection"]["switch"]["detect each"].empty() ? input_type_ : root["detection"]["switch"]["detect each"].asInt();
+            save_img_switch_ =      root["detection"]["switch"]["save img"].empty()           ? save_img_switch_    : root["detection"]["switch"]["save img"].asBool();
+            save_result_switch_ =   root["detection"]["switch"]["save result log"].empty() ? save_result_switch_ : root["detection"]["switch"]["save result log"].asBool();
+            show_time_switch_ =     root["detection"]["switch"]["show time"].empty()         ? show_time_switch_   : root["detection"]["switch"]["show time"].asBool();
+            template_dir_ =     root["detection"]["file"]["template directory"].empty()      ? template_dir_       : root["detection"]["file"]["template directory"].asString();
+            img_dir_ =          root["detection"]["file"]["image directory"].empty()              ? img_dir_            : root["detection"]["file"]["image directory"].asString();
+            ROI_y_ =        root["detection"]["ROI"]["y"].empty() ? ROI_y_ : root["detection"]["ROI"]["y"].asInt();
+            ROI_height_ =   root["detection"]["ROI"]["height"].empty() ? ROI_height_ : root["detection"]["ROI"]["height"].asInt();
+            left_cut_px_ =  root["detection"]["cut"]["left"].empty() ? 0 : root["detection"]["cut"]["left"].asInt();
+            right_cut_px_ = root["detection"]["cut"]["right"].empty() ? 0 : root["detection"]["cut"]["right"].asInt();
+            scratch_pixel_num_ = root["detection"]["param"]["scratch pixel"].empty() ? scratch_pixel_num_ : root["detection"]["param"]["scratch pixel"].asInt();
+
             // read calibration file
             img_width = root["detection"]["img"]["width"].empty() ? 5496 : root["detection"]["img"]["width"].asInt();
             img_height = root["detection"]["img"]["height"].empty() ? 3672 : root["detection"]["img"]["height"].asInt();
+            K.at<float>(0,0) = root["detection"]["img"]["k00"].empty() ? 5.4686824475865678e+03 : root["detection"]["img"]["k00"].asFloat();
+            K.at<float>(0,2) = root["detection"]["img"]["k02"].empty() ? 2.8218132226974494e+03 : root["detection"]["img"]["k02"].asFloat();
+            K.at<float>(1,1) = root["detection"]["img"]["k11"].empty() ? 5.4339587375402944e+03 : root["detection"]["img"]["k11"].asFloat();
+            K.at<float>(1,2) = root["detection"]["img"]["k12"].empty() ? 1.7965269137752516e+03 : root["detection"]["img"]["k12"].asFloat();
+
+            D.at<float>(0,0) = root["detection"]["img"]["d1"].empty() ? -9.9969522724538409e-02 : root["detection"]["img"]["d1"].asFloat();
+            D.at<float>(0,1) = root["detection"]["img"]["d2"].empty() ? 1.5747800609735992e-01 : root["detection"]["img"]["d2"].asFloat();
+            D.at<float>(0,2) = root["detection"]["img"]["d3"].empty() ? 0 : root["detection"]["img"]["d3"].asFloat();
+            D.at<float>(0,3) = root["detection"]["img"]["d4"].empty() ? 0 : root["detection"]["img"]["d4"].asFloat();
+            // D.at<float>(0,2) = 4.2284998727899482e-04;
+            // D.at<float>(0,3) = 1.7908780726509032e-03;
         }else{
             cout << "[ERROR] Jsoncpp error: " << errs << endl;
         }
@@ -1213,19 +1256,8 @@ int Detector::setParam(){
 
 
     // ANCHOR distort map
-    Mat K = Mat::zeros(3,3,CV_32FC1); 
-    K.at<float>(0,0) = 5.4686824475865678e+03;
-    K.at<float>(0,2) = 2.8218132226974494e+03;
-    K.at<float>(1,1) = 5.4339587375402944e+03;
-    K.at<float>(1,2) = 1.7965269137752516e+03;
-    K.at<float>(2,2) = 1.0;
-    Mat D = Mat::zeros(1,4,CV_32FC1); 
 
-    D.at<float>(0,0) = -9.9969522724538409e-02;
-    D.at<float>(0,1) = 1.5747800609735992e-01;
-    // D.at<float>(0,2) = 4.2284998727899482e-04;
-    // D.at<float>(0,3) = 1.7908780726509032e-03;
-    cout<<K<<endl<<D<<endl;
+    K.at<float>(2,2) = 1.0;
     initUndistortRectifyMap(K,D,Mat(),
                             getOptimalNewCameraMatrix(K, D, cv::Size(img_width,img_height), 1.0, cv::Size(img_width,img_height), 0),
                             cv::Size(img_width,img_height), CV_16SC2, remap_x_, remap_y_);
@@ -1240,7 +1272,7 @@ void Detector::setThresh(){
     Scalar temp_sum = sum(temp);
     cout<<"temp sum: "<<temp_sum[0]/255<<endl;
 
-    Mat temp_label = template_label_ > bin_thresh_;
+    Mat temp_label = (255-template_img_) > bin_thresh_;
     Scalar label_sum = sum(temp_label);
     cout<<"temp label sum: "<<label_sum[0]/255<<endl;
 
@@ -1281,14 +1313,22 @@ int Detector::detect(){
         // 划痕，折痕
         result = result | 4;
     }
+    char buff[10]={0};
+    buff[0] = 0x01; buff[1] = 0x06;
     // 保存json文件
     if(result != 0){
-        char buff[10]={0};
-        buff[0] = 0xAA; buff[1] = 0x01;
-        buff[2] = (char)(result & 0x00ff);
+        buff[4] = 0x01;
+        buff[6] = 0x88;
+        buff[7] = 0x5A;
         std::string msg(buff);
         serial_->sendMsg(msg);
         writeResJson(result);
+    }else{
+        buff[4] = 0x00;
+        buff[6] = 0x89;
+        buff[7] = 0xCA;
+        std::string msg(buff);
+        serial_->sendMsg(msg);
     }
     return 0;
 }
@@ -1409,7 +1449,6 @@ void Detector::writeResJson(int8_t result){
     wbuilder["indentation"] = "";
     std::unique_ptr<Json::StreamWriter> writer(wbuilder.newStreamWriter());
 
-    // To Do: 修改返回内容
     std::string work_name = work_name_list_->front();
     std::vector<std::string> split_name;
     SplitString(work_name,split_name,"_");
@@ -1428,18 +1467,11 @@ void Detector::writeResJson(int8_t result){
     }
     batch_item["faultType"] = result;
     
-    pthread_mutex_unlock(result_mutex_);
-    // result_root_->append(batch_item);
+    pthread_mutex_lock(result_mutex_);
     result_root_->copy(batch_item);
     batch_item.clear();
     std::cout << "'" << result_root_->toStyledString() << "'" << std::endl;
     pthread_mutex_unlock(result_mutex_);
-    // char* url = "http://127.0.0.1:7999/api/result";
-    // int ret = http_post_json(url, *result_root_);
-    // writer->write(root, &file);
-    // resFile.close();
-
-    // return 0;
 }
 
 int Detector::stopThread(){

@@ -26,7 +26,7 @@ public:
     ~Serial() { }
     int setBaudRate(const int baud_rate);
     int setParity(const int databits, const int stopbits, const int parity);
-    int init(char* port);
+    int init(const char* port);
     int sendMsg(const std::string msg);
     int readMsg(std::string &msg);
     int stop();

@@ -9,7 +9,7 @@ int Serial::setBaudRate(const int baud_rate){
     int status;
     struct termios Opt; 
     tcgetattr(fd_, &Opt); 
-    for (int i= 0; i < sizeof(baud_arr_) / sizeof(int); i++) { 
+    for (uint i= 0; i < sizeof(baud_arr_) / sizeof(int); ++i) { 
         if (baud_rate == name_arr_[i]) { 
             tcflush(fd_, TCIOFLUSH); 
             cfsetispeed(&Opt, baud_arr_[i]); 
@@ -103,7 +103,7 @@ int Serial::setParity(const int databits, const int stopbits, const int parity){
     return 0;
 }
 
-int Serial::init(char* port){
+int Serial::init(const char* port){
     fd_ = open( port, O_RDWR); /*以读写方式打开串口*/ 
     if (-1 == fd_){ 
         /* 不能打开串口一*/ 

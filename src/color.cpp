@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
 {
 	pthread_t post_thread_id = 3;
 	pthread_t server_thread_id = 4;
-	pthread_t first_thread_id = 5;
+	// pthread_t first_thread_id = 5;
     pthread_mutex_t slv_list_mutex;
     pthread_mutex_init(&slv_list_mutex, NULL);
     pthread_mutex_t result_mutex;
@@ -368,7 +368,7 @@ int main(int argc, char *argv[])
     std::queue<string> unsolved_list;
 
 	Json::Value* result_root = new Json::Value();
-	Json::Value* fst_result_root = new Json::Value();
+	// Json::Value* fst_result_root = new Json::Value();
 	
 	readNetParam();
     CurlClient::globalInit();

@@ -1,26 +1,26 @@
 #include "Detector.h"
 
 Detector::Detector():
-    bin_thresh_(40),
+    detection_thread_(2),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
-    start_detect_(false),
-    save_result_switch_(true),
-    save_img_switch_(true),
-    show_time_switch_(true),
-    origin_flag(false),
-    detection_thread_(2),
-    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
-    d_width_(400),
-    d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1)
+    id_(1),
+    d_width_(400),
+    d_height_(600),
+    bin_thresh_(40),
+    save_img_switch_(true),
+    save_result_switch_(true),
+    show_time_switch_(true),
+    start_detect_(false),
+    origin_flag(false),
+    camera_(NULL)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
@@ -35,26 +35,26 @@ Detector::Detector():
 }
 
 Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
-    bin_thresh_(40),
+    detection_thread_(2),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
-    start_detect_(false),
-    save_result_switch_(true),
-    save_img_switch_(true),
-    show_time_switch_(true),
-    origin_flag(false),
-    detection_thread_(2),
-    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
-    d_width_(400),
-    d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1)
+    id_(1),
+    d_width_(400),
+    d_height_(600),
+    bin_thresh_(40),
+    save_img_switch_(true),
+    save_result_switch_(true),
+    show_time_switch_(true),
+    start_detect_(false),
+    origin_flag(false),
+    camera_(NULL)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
@@ -77,26 +77,26 @@ Detector::Detector(
     std::vector<cv::Point2i>* desired_size_list,
     pthread_t threadId
 ):
-    bin_thresh_(40),
+    detection_thread_(threadId),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
-    start_detect_(false),
-    save_result_switch_(true),
-    save_img_switch_(true),
-    show_time_switch_(true),
-    origin_flag(false),
-    detection_thread_(threadId),
-    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
-    d_width_(400),
-    d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1)
+    id_(1),
+    d_width_(400),
+    d_height_(600),
+    bin_thresh_(40),
+    save_img_switch_(true),
+    save_result_switch_(true),
+    show_time_switch_(true),
+    start_detect_(false),
+    origin_flag(false),
+    camera_(NULL)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
@@ -130,26 +130,26 @@ Detector::Detector(
     int detectionId,
     pthread_t threadId
 ):
-    bin_thresh_(40),
+    detection_thread_(threadId),
     k_pos_(0.01),
     k_scratch_(0.001),
     k_bigpro_(0.001),
-    start_detect_(false),
-    save_result_switch_(true),
-    save_img_switch_(true),
-    show_time_switch_(true),
-    origin_flag(false),
-    detection_thread_(threadId),
-    camera_(NULL),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
-    d_width_(400),
-    d_height_(600),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1)
+    id_(1),
+    d_width_(400),
+    d_height_(600),
+    bin_thresh_(40),
+    save_img_switch_(true),
+    save_result_switch_(true),
+    show_time_switch_(true),
+    start_detect_(false),
+    origin_flag(false),
+    camera_(NULL)
 {
     std::vector<cv::Point2f> points(4);
     img_points_ = points;
@@ -270,7 +270,7 @@ int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     // double k1 = (linePoints[0][1].x - linePoints[0][0].x)/(linePoints[0][1].y - linePoints[0][0].y);
     // double k2 = (linePoints[1][1].x - linePoints[1][0].x)/(linePoints[1][1].y - linePoints[1][0].y);
     double k12 = (linePoints[0][1].y-image_bin.cols)/(linePoints[0][0].y - image_bin.cols);
-    double k22 = (linePoints[1][1].y-image_bin.cols)/(linePoints[1][0].y - image_bin.cols);
+    // double k22 = (linePoints[1][1].y-image_bin.cols)/(linePoints[1][0].y - image_bin.cols);
     // cout<<k1<<","<<k2<<endl;
     // TODO: use vertical vector to find the point
     /* if(k1 > 0 && k2 > 0){
@@ -395,7 +395,7 @@ int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     // waitKey(0);
     
     // 找四条直线
-    int i,j;
+    int i;
     std::vector<std::vector<cv::Point2f> > linePoints(4);
     std::vector<std::vector<cv::Point> > lines(4);
     image_bin2=image_bin.clone();
@@ -681,6 +681,7 @@ cv::Mat Detector::getLabelImg(Mat img){
             return dst;
         }
     }
+    return dst;
 }
 
 //-------------------------------------------------
@@ -814,6 +815,7 @@ int Detector::checkPos() {
             return 1;
         }
     }
+    return diff_sum[0]/255 < pos_thresh_;
     // return diff_sum[0]/255;
 }
 
@@ -862,6 +864,7 @@ int Detector::checkSize() {
         }
         return 0;
     }
+    return abs(width2 - d_width_ * d_width_) > size_thresh_ && abs(height2 - d_height_ * d_height_) > size_thresh_ ;
     //369330,370568
 }
 
@@ -874,7 +877,6 @@ int Detector::checkSize() {
 //-------------------------------------------------
 int Detector::checkScratch() {
     auto t_scratch_bef = chrono::system_clock::now();
-    show_time_switch_;
     Mat common,A,B,template_label_bin,diff_white,diff;
     /****************** white ******************/
     // 检测有颜色部分的瑕疵 以白色底时黑色部分的不同
@@ -952,7 +954,7 @@ int Detector::checkScratch() {
             return 1;
         }
     }
-    // return diff_sum[0]/255;
+    return diff_sum[0]/255 < scratch_thresh_;
 }
 
 //-------------------------------------------------
@@ -1013,7 +1015,7 @@ int Detector::checkBigProblem(){
             return 1;
         }
     }
-    return diff_sum[0]/255;
+    return diff_sum[0]/255 < bigpro_thresh_;
 }
 
 //-------------------------------------------------

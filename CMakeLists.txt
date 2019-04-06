@@ -100,6 +100,11 @@ target_link_libraries(Log
     Threads::Threads
 )
 
+add_library(Websocket
+    src/web/Websocket_server.cpp
+    third_party/mongoose/mongoose.c
+)
+
 # NOTE RELEASE
 add_executable(server_demo
     test/server_demo.cpp
@@ -194,4 +199,12 @@ add_executable(logtest
 )
 target_link_libraries(logtest
     Log
+)
+
+add_executable(websockettest
+    test/websockettest.cpp
+)
+target_link_libraries(websockettest
+    Websocket
+    Threads::Threads
 )

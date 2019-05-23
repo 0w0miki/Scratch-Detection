@@ -6,7 +6,8 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <json/json.h>
+#include "json/json.h"
+#include "Log.hpp"
  
 /*
     * 宏定义发送方法
@@ -118,3 +119,8 @@ private:
     //从文件全路径中获取文件名指针
     const char* getFileName(const char *path);
 };
+
+size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream);
+int http_post_file(const char *url, const char *filename);
+int http_post_json(const char *url, const Json::Value json_value);
+int http_get_json(const char *url);

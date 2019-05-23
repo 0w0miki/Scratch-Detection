@@ -38,7 +38,7 @@ void HttpServer::OnHttpEvent(mg_connection *connection, int event_type, void *ev
 	}
 }
 
-static int route_check(http_message *http_msg, char *route_prefix)
+static int route_check(http_message *http_msg, const char *route_prefix)
 {
 	if (mg_vcmp(&http_msg->uri, route_prefix) == 0)
 		if (mg_vcmp(&http_msg->method, "GET"))

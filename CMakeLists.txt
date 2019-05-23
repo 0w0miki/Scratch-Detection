@@ -5,7 +5,7 @@ SET(CMAKE_C_COMPILER g++)
 add_compile_options(-std=c++11)
 
 #set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3 -pthread" )
-SET(CMAKE_BUILD_TYPE "Debug") 
+SET(CMAKE_BUILD_TYPE "Release") 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3" )
 SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -std=c++11 -O0 -Wall -g -ggdb")
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -52,12 +52,23 @@ set(CAMERALIBS
     ${OpenCV_LIBS}
 )
 
+add_library(Log SHARED
+    src/Log.cpp
+)
+target_link_libraries(Log
+    Threads::Threads
+)
+
 add_library(Camera SHARED 
     src/camera/CameraUtils.cpp
     src/camera/Camera.cpp
+    src/utils.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
-target_link_libraries(Camera ${CAMERALIBS})
+target_link_libraries(Camera 
+    ${CAMERALIBS}
+    Log
+)
 
 add_library(Detection SHARED
     src/detection/Detector.cpp
@@ -69,19 +80,28 @@ add_library(Detection SHARED
 target_link_libraries(Detection 
     ${CURL_LIBRARY} 
     Camera
+    Log
 )
 
 add_library(Client SHARED
     src/web/http_client.cpp
     third_party/jsoncpp/src/jsoncpp.cpp
 )
-target_link_libraries(Client ${CURL_LIBRARY})
+target_link_libraries(Client 
+    ${CURL_LIBRARY}
+    Log
+)
+
+add_library(Websocket SHARED
+    src/web/Websocket_server.cpp
+    third_party/mongoose/mongoose.c
+)
 
 add_library(System SHARED
     src/System.cpp
-    src/web/http_server.cpp
     src/utils.cpp
     src/Serial.cpp
+    src/web/Websocket_server.cpp
     third_party/mongoose/mongoose.c
     third_party/jsoncpp/src/jsoncpp.cpp
 )
@@ -91,18 +111,7 @@ target_link_libraries(System
     Camera
     Detection
     Client
-)
-
-add_library(Log
-    src/Log.cpp
-)
-target_link_libraries(Log
-    Threads::Threads
-)
-
-add_library(Websocket
-    src/web/Websocket_server.cpp
-    third_party/mongoose/mongoose.c
+    Log
 )
 
 # NOTE RELEASE
@@ -120,6 +129,7 @@ target_link_libraries(server_demo
     Camera
     Detection
     Client
+    Log
 )
 
 add_executable(color
@@ -136,6 +146,7 @@ target_link_libraries(color
     Camera
     Detection
     Client
+    Log
 )
 
 # NOTE TEST
@@ -153,6 +164,7 @@ target_link_libraries(mono_demo
     Camera
     Detection
     Client
+    Log
 )
 
 add_executable(serial_demo
@@ -207,4 +219,5 @@ add_executable(websockettest
 target_link_libraries(websockettest
     Websocket
     Threads::Threads
+    Log
 )

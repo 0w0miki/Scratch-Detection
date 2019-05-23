@@ -1,75 +1,5 @@
 #include "utils.h"
 
-//回调函数
-size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
-    string data((const char*) ptr, (size_t) size * nmemb);
-
-    *((stringstream*) stream) << data << endl;
-
-    return size * nmemb;
-}
-
-int http_post_file(const char *url, const char *filename){
-    CURL *curl = NULL;
-    CURLcode res;
-
-    struct curl_httppost *post=NULL;
-    struct curl_httppost *last=NULL;
-    curl_slist *headers=NULL;
-    bool out = false;
-    if(filename == NULL || url == NULL){
-        printf("<-----------no url or filename----------->\n");
-        return -1;
-    }
-
-    printf("URL: %s\n", url);
-    printf("filename: %s\n", filename);
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    /* Add simple file section */
-    if( curl_formadd(&post, &last, CURLFORM_COPYNAME, "result",
-               CURLFORM_FILECONTENT, filename, 
-               CURLFORM_CONTENTHEADER, headers,
-               CURLFORM_END) != 0)
-    {
-        fprintf(stderr, "curl_formadd error.\n");
-        out = true;
-    }
-    if(out == false){
-    //curl_global_init(CURL_GLOBAL_ALL);
-        curl = curl_easy_init();
-        if(curl == NULL)
-        {
-            fprintf(stderr, "curl_easy_init() error.\n");
-            out = true;
-        }
-    }
-
-    if(out == false){
-        // curl_easy_setopt(curl, CURLOPT_HEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
-        curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
-        int timeout = 5;
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-        // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-        // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
-
-        res = curl_easy_perform(curl);
-        if(res != CURLE_OK)
-        {
-            fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
-            out = true;
-        }
-    }
-
-    if(out == false){
-        curl_easy_cleanup(curl);
-    }
-    curl_formfree(post);
-    curl_slist_free_all(headers);
-    //curl_global_cleanup();
-    return 0;
-}
-
 int check_file(char *filename){
     ifstream fd;
     fd.open(filename,std::ios::in);
@@ -86,102 +16,12 @@ int check_file(char *filename){
     return file_len;
 }
 
-int http_post_json(const char *url, const Json::Value json_value){
-    CURL *curl = NULL;
-    CURLcode res;
-
-    Json::StreamWriterBuilder wbuilder;
-    wbuilder["indentation"] = "";
-    std::string post_str = Json::writeString(wbuilder, json_value);
-    // std::string post_str = json_value.toStyledString();
-
-    struct curl_httppost *post=NULL;
-    struct curl_httppost *last=NULL;
-    struct curl_slist *headers=NULL;
-    headers = curl_slist_append(headers, "Content-Type:application/json;charset=UTF-8");
-
-    if(json_value == NULL || url == NULL){
-        printf("<-----------no url or filename----------->\n");
-        return -1;
-    }
-
-    printf("URL: %s\n", url);
-    printf("post_str: %s\n", post_str.data());
-    
-    /* Add simple file section */
-    curl = curl_easy_init();
-    if(curl == NULL)
-    {
-        fprintf(stderr, "curl_easy_init() error.\n");
-    }
-
-    curl_easy_setopt(curl, CURLOPT_POST, 1);//设置为非0表示本次操作为POST
-    curl_easy_setopt(curl, CURLOPT_HEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_str.c_str());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, post_str.size());
-    int timeout = 5;
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
-
-    res = curl_easy_perform(curl);
-    if(res != CURLE_OK)
-    {
-        fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
-    }
-    curl_easy_cleanup(curl);
-    curl_formfree(post);
-    curl_slist_free_all(headers);
-    //curl_global_cleanup();
-    return 0;
-}
-
-int http_get_json(const char *url){
-    CURL *curl = NULL;
-    CURLcode res;
-
-    if(url == NULL){
-        printf("<-----------no url----------->\n");
-        return -1;
-    }
-
-    printf("URL: %s\n", url);
-    
-    /* Add simple file section */
-    curl = curl_easy_init();
-    if(curl == NULL)
-    {
-        fprintf(stderr, "curl_easy_init() error.\n");
-        return -2;
-    }
-    std::stringstream out;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
-    int timeout = 5;
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
-
-    res = curl_easy_perform(curl);
-    if(res != CURLE_OK)
-    {
-        fprintf(stderr, "curl_easy_perform[%d] error.\n", res);
-    }
-    curl_easy_cleanup(curl);
-    //curl_global_cleanup();
-    return 0;
-}
-
-
 
 int readBatchFile(std::string filename, 
     std::deque<std::string> &work_name_list, 
-    std::deque<int64_t> &work_count_list, 
+    std::deque<int> &work_count_list, 
     std::deque<std::string> &batch_origin_list, 
-    std::deque<int64_t> &batch_count_list)
+    std::deque<int> &batch_count_list)
 {
     std::ifstream batch_file;
     std::string file_dir = "../";

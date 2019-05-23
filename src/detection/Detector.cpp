@@ -11,7 +11,7 @@ Detector::Detector():
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1),
+    id_count_(1),
     d_width_(400),
     d_height_(600),
     bin_thresh_(40),
@@ -27,7 +27,7 @@ Detector::Detector():
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
     if(!result_log_){
-        cout<< "[WARN]failed to open log file"<<endl;
+        sLog->logWarn("Failed to open log file");
     }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
 
@@ -45,7 +45,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1),
+    id_count_(1),
     d_width_(400),
     d_height_(600),
     bin_thresh_(40),
@@ -61,7 +61,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
     if(!result_log_){
-        cout<< "[WARN]failed to open log file"<<endl;
+        sLog->logWarn("Failed to open log file");
     }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
     
@@ -70,10 +70,10 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
 }
 
 Detector::Detector(
-    pthread_mutex_t* mutex, 
+    pthread_mutex_t* mutex,
     std::queue<string>* list, 
     std::deque<string>* batch_origin_list, 
-    std::deque<int64_t>* batch_count_list, 
+    std::deque<int>* batch_count_list, 
     std::vector<cv::Point2i>* desired_size_list,
     pthread_t threadId
 ):
@@ -87,7 +87,7 @@ Detector::Detector(
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1),
+    id_count_(1),
     d_width_(400),
     d_height_(600),
     bin_thresh_(40),
@@ -103,7 +103,7 @@ Detector::Detector(
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
     if(!result_log_){
-        cout<< "[WARN]failed to open log file"<<endl;
+        sLog->logWarn("Failed to open log file");
     }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
     
@@ -119,14 +119,14 @@ Detector::Detector(
 }
 
 Detector::Detector(
-    pthread_mutex_t* mutex, 
+    pthread_mutex_t* mutex,
     pthread_mutex_t* result_mutex,
     Json::Value* root, 
     std::queue<string>* list, 
     std::deque<std::string>* work_name_list, 
-    std::deque<int64_t>* work_count_list, 
+    std::deque<int>* work_count_list, 
     std::deque<string>* batch_origin_list, 
-    std::deque<int64_t>* batch_count_list,
+    std::deque<int>* batch_count_list,
     int detectionId,
     pthread_t threadId
 ):
@@ -140,7 +140,7 @@ Detector::Detector(
     ROI_height_(2400),
     scratch_pixel_num_(3),
     count_(1),
-    id_(1),
+    id_count_(1),
     d_width_(400),
     d_height_(600),
     bin_thresh_(40),
@@ -156,7 +156,7 @@ Detector::Detector(
     string filename = "result.csv";
     result_log_.open(filename,ios::out);
     if(!result_log_){
-        cout<< "[WARN]failed to open log file"<<endl;
+        sLog->logWarn("Failed to open log file");
     }
     result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
     
@@ -172,7 +172,7 @@ Detector::Detector(
     
     input_type_ = DETECTA4 | detectionId;
 }
-
+    
 Detector::~Detector()
 {
     start_detect_ = false;
@@ -239,7 +239,7 @@ int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
         // std::cout << lines[0]<<"," <<lines[1]<<"," <<lines[2]<<"," <<lines[3]<< std::endl;
         // 拟合直线
         cv::fitLine(lines[i], line, CV_DIST_HUBER, 0, 0.01, 0.01);
-        std::cout << line[0]<<"," <<line[1]<<"," <<line[2]<<"," <<line[3]<< std::endl;
+        sLog->logDebug("%d,%d,%d,%d",line[0],line[1],line[2],line[3]);
 
         cv::Point point0;
         point0.x = line[2];
@@ -322,10 +322,10 @@ int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     points[2].x = (k12*linePoints[1][0].x - linePoints[1][1].x)/(k12-1);
     points[2].y = image_bin.rows;
 
-    cout<<linePoints[0][0]<<","<<linePoints[0][1]<<endl;
+    sLog->logDebug("linepoints %f, %f", linePoints[0][0],linePoints[0][1]);
     for(i=0;i<4;i++){
         // CrossPoint(points[i],linePoints[i],linePoints[(i+1)%4]);
-        cout << points[i].x<<","<< points[i].y << endl;
+        sLog->logDebug("find paper %f, %f", points[i].x, points[i].y);
     }
 
 
@@ -496,7 +496,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     contours.clear();
     hierarchy.clear();
     if(locate_square.empty()){
-        cout<<"[ERROR] cannot locate the label"<<endl;
+        sLog->logError("Cannot locate the label");
         return;
     }
     int square_y = image.cols;
@@ -511,13 +511,13 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
         }
     }
     if(square_y_i == -1){
-        cout<<"[ERROR] no square satisfy requirement"<<endl;
+        sLog->logError("No square satisfy requirement");
         return;
     }
-    cout<<square_y<<","<<square_y_i<<endl;
+    sLog->logDebug("square y%d, yi%d", square_y, square_y_i);
     cur_square = locate_square[square_y_i];
     auto t_square_end = chrono::system_clock::now();
-    cout << "find square time "<< chrono::duration_cast<chrono::microseconds>(t_square_end-t_square_bef).count() << "us\n";
+    sLog->logDebug("find square time %ld us", chrono::duration_cast<chrono::microseconds>(t_square_end-t_square_bef).count());
 
 
     // find paper
@@ -535,7 +535,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     auto t_flood_bef = chrono::system_clock::now();
     floodFill(paper_black,Point(minx-1,miny-1),0);
     auto t_flood_end = chrono::system_clock::now();
-    cout << "flood fill time "<< chrono::duration_cast<chrono::microseconds>(t_flood_end-t_flood_bef).count() << "us\n";
+    sLog->logDebug("flood fill time %ld us", chrono::duration_cast<chrono::microseconds>(t_flood_end-t_flood_bef).count());
 
     // leave only paper
     paper_bin = paper_bin - paper_black;
@@ -555,7 +555,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
         }
     }
     auto t_mask_end = chrono::system_clock::now();
-    cout << "find mask time "<< chrono::duration_cast<chrono::microseconds>(t_mask_end-t_mask_bef).count() << "us\n";
+    sLog->logDebug("find mask time %ld us", chrono::duration_cast<chrono::microseconds>(t_mask_end-t_mask_bef).count());
 
     // perspective transformation
     auto t_findline_bef = chrono::system_clock::now();
@@ -592,7 +592,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
         cv::line(image_bin2, p1, p2, cv::Scalar(255));
     }
     auto t_findline_end = chrono::system_clock::now();
-    cout << "find line time "<< chrono::duration_cast<chrono::microseconds>(t_findline_end-t_findline_bef).count() << "us\n";
+    sLog->logDebug("find line time %ld us", chrono::duration_cast<chrono::microseconds>(t_findline_end-t_findline_bef).count() );
     // namedWindow("with line", WINDOW_NORMAL);
     // imshow("with line", image_bin2);
     auto t_corner_bef = chrono::system_clock::now();
@@ -602,7 +602,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
         // cout << corners[i].x<<","<< corners[i].y << endl;
     }
     auto t_corner_end = chrono::system_clock::now();
-    cout << "find corner time "<< chrono::duration_cast<chrono::microseconds>(t_corner_end-t_corner_bef).count() << "us\n";
+    sLog->logDebug("find corner time %ld us", chrono::duration_cast<chrono::microseconds>(t_corner_end-t_corner_bef).count());
 
     auto t_trans_bef = chrono::system_clock::now();
     vector<Point2f> corners_trans(4);
@@ -614,7 +614,7 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     // cout<<transform<<endl;
     warpPerspective(image,dst,transform,dst.size());
     auto t_trans_end = chrono::system_clock::now();
-    cout << "find trans time "<< chrono::duration_cast<chrono::microseconds>(t_trans_end-t_trans_bef).count() << "us\n";
+    sLog->logDebug("find trans time %ld us", chrono::duration_cast<chrono::microseconds>(t_trans_end-t_trans_bef).count());
     //image.copyTo(dst,mask);
 
     // cout<<locate_square.size()<<endl;
@@ -803,14 +803,14 @@ int Detector::checkPos() {
             result_log_ << ",";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
-                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
+                sLog->logDebug("check Position time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count());
             }
             return 0;
         }else{
             result_log_<<"position fault,";
             if(show_time_switch_){
                 auto t_checkPos_end = chrono::system_clock::now();
-                cout<< "check Position time " << chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count() << "ms\n";
+                sLog->logDebug("check Position time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_checkPos_end-t_checkPos_bef).count());
             }
             return 1;
         }
@@ -843,15 +843,15 @@ int Detector::checkSize() {
         float yw = img_points_[3-i].y - img_points_[i].y;
         height2 = max(height2,xw * xw + yw * yw);
     }
-    std::cout << "width2: "<<width2<<" height2: "<<height2 << '\n';
+    sLog->logDebug("width2: %d, height2: %d", width2, height2);
     if( abs(width2 - d_width_ * d_width_) > size_thresh_ && abs(height2 - d_height_ * d_height_) > size_thresh_ ){
-        std::cout << "size fault" << '\n';
+        sLog->logInfo("size fault");
         if(save_result_switch_){
             result_log_ << "size fault,";
         }
         if(show_time_switch_){
             auto t_size_end = chrono::system_clock::now();
-            cout<< "size time " << chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count() << "ms\n";
+            sLog->logDebug("size time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count());
         }
         return 1;
     }else{
@@ -860,7 +860,7 @@ int Detector::checkSize() {
         }
         if(show_time_switch_){
             auto t_size_end = chrono::system_clock::now();
-            cout<< "size time " << chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count() << "ms\n";
+            sLog->logDebug("size time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_size_end-t_size_bef).count());
         }
         return 0;
     }
@@ -889,11 +889,11 @@ int Detector::checkScratch() {
     // waitKey();
     threshold(A,A,150,255,cv::THRESH_BINARY);
     threshold(B,B,180,255,cv::THRESH_BINARY);
-    namedWindow("template_label_",CV_WINDOW_NORMAL);
-    imshow("template_label_",A);
-    namedWindow("label_",CV_WINDOW_NORMAL);
-    imshow("label_",B);
-    waitKey();
+    // namedWindow("template_label_",CV_WINDOW_NORMAL);
+    // imshow("template_label_",A);
+    // namedWindow("label_",CV_WINDOW_NORMAL);
+    // imshow("label_",B);
+    // waitKey();
     common = getCommon(A,B,scratch_pixel_num_);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
@@ -913,11 +913,11 @@ int Detector::checkScratch() {
     // waitKey();
     threshold(A,A,240,255,cv::THRESH_BINARY);
     threshold(B,B,150,255,cv::THRESH_BINARY);
-    namedWindow("template_label_",CV_WINDOW_NORMAL);
-    imshow("template_label_",A);
-    namedWindow("label_",CV_WINDOW_NORMAL);
-    imshow("label_",B);
-    waitKey();
+    // namedWindow("template_label_",CV_WINDOW_NORMAL);
+    // imshow("template_label_",A);
+    // namedWindow("label_",CV_WINDOW_NORMAL);
+    // imshow("label_",B);
+    // waitKey();
     common = getCommon(A,B,scratch_pixel_num_);
     // namedWindow("common",CV_WINDOW_NORMAL);
     // imshow("common",common);
@@ -930,11 +930,11 @@ int Detector::checkScratch() {
     
     bitwise_or(diff,diff_white,diff);
     Scalar diff_sum = sum(diff);
-    std::cout << "scratch score"<<diff_sum[0]/255 << '\n';
+    sLog->logInfo("scratch score %f", diff_sum[0]/255);
 
     // log
     if(save_img_switch_){
-       saveImg("scratch", diff); 
+        saveImg("scratch", diff); 
     }
     if(save_result_switch_){
         result_log_ << diff_sum[0]/255;
@@ -942,14 +942,14 @@ int Detector::checkScratch() {
             result_log_ << '\n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
-                cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
+                sLog->logDebug("scratch time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count());
             }
             return 0;
         }else{
             result_log_ << ",scratch fault" << '\n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
-                cout<< "scratch time " << chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count()<< "ms\n";
+                sLog->logDebug("scratch time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count());
             }
             return 1;
         }
@@ -991,7 +991,7 @@ int Detector::checkBigProblem(){
     // imshow("wlcommon",common);
     bitwise_xor(P,common,res);
     Scalar diff_sum = sum(res);
-    std::cout << "bp score"<<diff_sum[0]/255 << '\n';
+    sLog->logInfo("bp score %f", diff_sum[0]/255);
     
     if(save_img_switch_){
         saveImg("bp", res);
@@ -1003,14 +1003,14 @@ int Detector::checkBigProblem(){
             result_log_ << ",";
             if(show_time_switch_){
                 auto t_bp_end = chrono::system_clock::now();
-                cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
+                sLog->logDebug("big problerm time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count());
             }
             return 0;
         }else{
             result_log_<<",bigpro fault"<<',';
             if(show_time_switch_){
                 auto t_bp_end = chrono::system_clock::now();
-                cout<< "big problerm time " << chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count() << "ms\n";
+                sLog->logDebug("big problerm time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_bp_end-t_bp_bef).count());
             }
             return 1;
         }
@@ -1028,9 +1028,9 @@ int Detector::checkBigProblem(){
 int Detector::setOriginImg(string filename){
     string file = template_dir_ + filename;
     template_img_ = cv::imread(file,0);
-    cout<<file<<endl;
+    sLog->logInfo("Origin image file %s",file.c_str());
     if(!template_img_.data){
-        cout<<"[ERROR] No source image!!!"<<endl;
+        sLog->logError("No source image!!!");
         return -1;
     }
     // 裁切一些
@@ -1056,7 +1056,7 @@ int Detector::setOriginImg(string filename){
 //-------------------------------------------------
 int Detector::setOriginImg(cv::Mat img){
     if(!img.data){
-        cout<<"[ERROR] No source image!!!"<<endl;
+        sLog->logError("No source image!!!");
         return -1;
     }
     // 裁切一些
@@ -1086,7 +1086,7 @@ int Detector::setImg(string filename){
     string file = img_dir_ + filename;
     Mat src = cv::imread(file,0);
     if(!src.data){
-        cout<<"[ERROR] No source image!!!"<<endl;
+        sLog->logError("No detection source image!!!");
         return -1;
     }
     // 去除畸变
@@ -1120,9 +1120,9 @@ int Detector::setImg(string filename){
     cout<<img.size()<<endl;
     cout<<ROI.y<<","<<ROI.height<<endl;
     img_gray_ = img(ROI);
-    namedWindow("img",WINDOW_NORMAL);
-    imshow("img",img_gray_);
-    waitKey();
+    // namedWindow("img",WINDOW_NORMAL);
+    // imshow("img",img_gray_);
+    // waitKey();
 
     label_ = img_gray_;
     adjustSize(img_gray_, template_label_);
@@ -1144,7 +1144,7 @@ int Detector::setImg(string filename){
 int Detector::setImg(cv::Mat img){
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
     if(!img_gray_.data){
-        cout<<"[ERROR] No source image!!!"<<endl;
+        sLog->logError("No detection source image!!!");
         return -1;
     }
     if(STATE_OK != findLabel(img, img_gray_, img_points_))
@@ -1170,7 +1170,7 @@ int Detector::setImg(cv::Mat img){
 void Detector::saveImg(string pre, cv::Mat img){
     string Output_Path = "../Output/images/";
     string suffix = ".jpg";
-    string Output_name = Output_Path + pre + to_string(id_) + '_' + to_string(count_) + suffix; 
+    string Output_name = Output_Path + pre + unsolved_list_->front() + suffix; 
     imwrite(Output_name, img);
 }
 
@@ -1196,7 +1196,7 @@ int Detector::launchThread(){
     int ret = pthread_create(&detection_thread_, NULL, detector_pth, this);
     if(ret != 0)
     {
-        printf("<Failed to create the detection thread>\n");
+        sLog->logError("Failed to create the detection thread");
         return -1;
     }
     pthread_detach(detection_thread_);
@@ -1212,7 +1212,7 @@ int Detector::setParam(){
 	paramfile.open("../settings.json", std::ios::binary);
     int img_width, img_height;
     if(!paramfile){
-        printf("[ERROR] failed to open settings.json\n");
+        sLog->logError("Failed to open settings.json");
         return -1;
     }else{
         Json::CharReaderBuilder builder;
@@ -1251,7 +1251,7 @@ int Detector::setParam(){
             // D.at<float>(0,2) = 4.2284998727899482e-04;
             // D.at<float>(0,3) = 1.7908780726509032e-03;
         }else{
-            cout << "[ERROR] Jsoncpp error: " << errs << endl;
+            sLog->logError("Jsoncpp error: %s", errs.c_str());
         }
         paramfile.close();
     }
@@ -1272,11 +1272,11 @@ void Detector::setThresh(){
 
     Mat temp = template_img_ > bin_thresh_;
     Scalar temp_sum = sum(temp);
-    cout<<"temp sum: "<<temp_sum[0]/255<<endl;
+    sLog->logDebug("temp sum: %f", temp_sum[0]/255);
 
     Mat temp_label = (255-template_img_) > bin_thresh_;
     Scalar label_sum = sum(temp_label);
-    cout<<"temp label sum: "<<label_sum[0]/255<<endl;
+    sLog->logDebug("temp label sum: %f", label_sum[0]/255);
 
     pos_thresh_ = temp_sum[0]/255 * k_pos_;
     scratch_thresh_ = label_sum[0]/255 * k_scratch_;
@@ -1322,15 +1322,13 @@ int Detector::detect(){
         buff[4] = 0x01;
         buff[6] = 0x88;
         buff[7] = 0x5A;
-        std::string msg(buff);
-        serial_->sendMsg(msg);
+        serial_->sendMsg(buff,8);
         writeResJson(result);
     }else{
         buff[4] = 0x00;
         buff[6] = 0x89;
         buff[7] = 0xCA;
-        std::string msg(buff);
-        serial_->sendMsg(msg);
+        serial_->sendMsg(buff,8);
     }
     return 0;
 }
@@ -1338,6 +1336,12 @@ int Detector::detect(){
 void Detector::ProcDetect(){
     start_detect_ = true;
     while(start_detect_){
+        if(state_ == DETECTOR_READY_TO_PAUSE || state_ == DETECTOR_PAUSE){
+            wait(200);
+            if(state_ == DETECTOR_READY_TO_PAUSE)
+                state_ = DETECTOR_PAUSE;
+            continue;
+        }
         pthread_mutex_lock(mutex_);
         if(unsolved_list_->empty()){
             // 没有待处理文件
@@ -1349,7 +1353,7 @@ void Detector::ProcDetect(){
         auto t_bef = chrono::system_clock::now();
         string unsolved_filename = unsolved_list_->front();
         pthread_mutex_unlock(mutex_);
-        cout<<"unsolved filename:"<<unsolved_filename<<endl;
+        sLog->logInfo("unsolved filename: %s", unsolved_filename.c_str());
         std::vector<std::string> split_name;
         SplitString(unsolved_filename, split_name, "_");
         if(!batch_origin_list_->empty() && false == origin_flag){
@@ -1358,17 +1362,19 @@ void Detector::ProcDetect(){
             // origin_name.append("/");
             std::string origin_name = batch_origin_list_->front();
             // origin_name.append(batch_origin_list_->front());
-            if(setOriginImg(origin_name)){
-                printf("<----------- set new origin image ----------->\n");
+            if(setOriginImg(origin_name) == 0){
+                sLog->logInfo("<----------- set new origin image ----------->");
                 origin_flag = true;
             }
         }
 
         bool img_setted = true;
         // 设置待处理图像
-        if(STATE_OK != setImg(unsolved_filename))
+        int setret = setImg(unsolved_filename);
+        if(STATE_OK != setret){
             img_setted = false;
-        else{
+            sLog->logError("failed to set photo %d", setret);
+        }else{
             // 检测
             int ret = detect();
             if(ret != 0){
@@ -1377,7 +1383,7 @@ void Detector::ProcDetect(){
         }
         
         // 递增计数器
-        id_++;
+        id_count_++;
         count_++;
         
         // 出队列
@@ -1390,39 +1396,38 @@ void Detector::ProcDetect(){
                 setOriginImg(batch_origin_list_->front());
             }else{
                 // 出队后队列没图 等待下一批图
-                printf("[WARN] origin image list end.\n");
+                sLog->logWarn("Origin image list end");
                 origin_flag = false;
             }
-            printf("input type: %d\n",input_type_);
+            sLog->logInfo("input type: %d",input_type_);
             if(!(input_type_ & DETECTA4)){
                 // 当前任务是对每个标签检测
                 desired_size_iter_++;
-                cout<<(*desired_size_iter_).x<<endl;
+                // cout<<(*desired_size_iter_).x<<endl;
                 if(desired_size_iter_ != desired_size_list_->end()){
                     setDesiredSize(*desired_size_iter_);
-                    cout<<"test"<<endl;
                 }else{
-                    printf("[WARN] desired size list end.\n");
+                    sLog->logWarn("Desired size list end");
                 }
             }
         }
-        if(!work_count_list_->empty() && id_ > work_count_list_->front()){
-            // 当前作业非空 且 当前作业数完成 移到下个作业
-            id_ = 1;
-            std::cout << "detection pop" << std::endl;
+        if(!work_count_list_->empty() && id_count_ > work_count_list_->front()){
+            // 当前队列非空 且 当前作业数完成 弹出
+            id_count_ = 1;
+            sLog->logInfo("detection pop");
             work_count_list_->pop_front();
             work_name_list_->pop_front();
             if(camera_ != NULL)
                 camera_->popList();
         }
-        
+
         // 未处理图像出队
         pthread_mutex_lock(mutex_);
         unsolved_list_->pop();
         pthread_mutex_unlock(mutex_);
         if(show_time_switch_){
             auto t_end = chrono::system_clock::now();
-            cout<< "total time: " << chrono::duration_cast<chrono::milliseconds>(t_end-t_bef).count() << "ms\n";
+            sLog->logInfo("total time: %ld ms", chrono::duration_cast<chrono::milliseconds>(t_end-t_bef).count());
         }
         // sleep for 0.5ms
         wait(500);
@@ -1434,7 +1439,11 @@ void* Detector::detector_pth(void* args){
     _this->ProcDetect();
 }
 
-int64_t Detector::getCount(){
+int64_t Detector::getIdCount(){
+    return id_count_;
+}
+
+int Detector::getCount(){
     return count_;
 }
 
@@ -1444,7 +1453,7 @@ void Detector::setDesiredSize(cv::Point2i desired_size){
 }
 
 void Detector::writeResJson(int8_t result){
-    printf("<-------------------Write json file------------------------>");
+    sLog->logInfo("<-------------------Write json file------------------------>");
     // Json::Value root;
     Json::Value batch_item;
     Json::StreamWriterBuilder wbuilder;
@@ -1454,7 +1463,7 @@ void Detector::writeResJson(int8_t result){
     std::string work_name = work_name_list_->front();
     std::vector<std::string> split_name;
     SplitString(work_name,split_name,"_");
-    std::cout<<split_name[0]<<std::endl;
+    sLog->logDebug("%s", split_name[0].c_str());
     if(split_name[0] == "reprint"){
         // 重打
         int work_id  = std::stoi(split_name[1]);
@@ -1465,14 +1474,14 @@ void Detector::writeResJson(int8_t result){
         // 新打
         int work_id  = std::stoi(split_name[1]);
         batch_item["printJobID"] = work_id;
-        batch_item["printWorkNumber"] = id_;
+        batch_item["printWorkNumber"] = id_count_;
     }
     batch_item["faultType"] = result;
     
     pthread_mutex_lock(result_mutex_);
     result_root_->copy(batch_item);
     batch_item.clear();
-    std::cout << "'" << result_root_->toStyledString() << "'" << std::endl;
+    sLog->logDebug("result json: %s", result_root_->toStyledString().c_str());
     pthread_mutex_unlock(result_mutex_);
 }
 

@@ -113,10 +113,12 @@ int Serial::init(const char* port){
     return 0;
 }
 
-int Serial::sendMsg(const std::string msg){
-    int Length = msg.size();
-    printf("length: %d",Length);
-    int nByte = write(fd_, msg.c_str(), Length);
+int Serial::sendMsg(char* msg, int size){
+    printf("send serial %d\n", size);
+    for(int i=0;i<size;++i)
+        printf("%#X", msg[i]);
+    printf("\n");
+    int nByte = write(fd_, msg, size);
     return nByte;
 }
 

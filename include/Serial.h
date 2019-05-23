@@ -27,7 +27,7 @@ public:
     int setBaudRate(const int baud_rate);
     int setParity(const int databits, const int stopbits, const int parity);
     int init(const char* port);
-    int sendMsg(const std::string msg);
+    int sendMsg(char* msg, int size);
     int readMsg(std::string &msg);
     int stop();
 };

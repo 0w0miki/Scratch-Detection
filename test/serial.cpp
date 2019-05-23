@@ -22,6 +22,6 @@ int main(int argc, char const *argv[])
     buff[7] = 0x5A;
     std::string msg(buff);
     std::cout<<msg<<std::endl;
-    printf("send %d byte",ss.sendMsg(msg));
+    printf("send %d byte",ss.sendMsg(buff,8));
     return 0;
 }

@@ -43,7 +43,7 @@ bool WebsocketServer::Start(){
 		return false;
 	mg_set_protocol_http_websocket(connection);
 
-	printf("starting websocket server at port: %s\n", m_port.c_str());
+	sLog->logInfo("starting websocket server at port: %s", m_port.c_str());
 	// loop
 	while (true)
 		mg_mgr_poll(&m_mgr, 200); // ms
@@ -58,6 +58,10 @@ void WebsocketServer::AddHttpHandler(const std::string &url, ReqHandler req_hand
     s_http_handler_map.insert(std::make_pair(url,req_handler));
 }
 
+void WebsocketServer::setWebsocketConnectHandler(std::function<bool ()> fun){
+	s_ws_connect_handler = fun;
+}
+
 void WebsocketServer::RemoveHttpHandler(const std::string &url){
     auto iter = s_http_handler_map.find(url);
     if(iter != s_http_handler_map.end())
@@ -68,19 +72,20 @@ void WebsocketServer::OnEvent(mg_connection *connection, int event_type, void *e
     switch (event_type)
     {
         case MG_EV_WEBSOCKET_HANDSHAKE_DONE:{
-            printf("New websocket connection:%p\n", connection);
+            sLog->logInfo("New websocket connection:%p\n", connection);
             std::string msg("Hello Websocket Client");
             mg_send_websocket_frame(connection, WEBSOCKET_OP_TEXT, msg.c_str(), msg.size());
+			s_ws_connect_handler();
             break;
         }
         case MG_EV_WEBSOCKET_FRAME:{
             struct websocket_message *wm = (struct websocket_message *)event_data;
-            printf("receive websocket msg: %s\n", wm->data);
+            sLog->logInfo("receive websocket msg: %s\n", wm->data);
             break;
         }
         case MG_EV_CLOSE:{
             if(isWebsocket(connection))
-                printf("Websocket connection:%p closed\n", connection);
+                sLog->logInfo("Websocket connection:%p closed\n", connection);
             break;
         }
         case MG_EV_HTTP_REQUEST:{
@@ -96,7 +101,7 @@ void WebsocketServer::OnEvent(mg_connection *connection, int event_type, void *e
 void WebsocketServer::HandleHttpEvent(mg_connection *connection, http_message *http_req)
 {
 	std::string req_str = std::string(http_req->message.p, http_req->message.len);
-	printf("got request: %s\n", req_str.c_str());
+	sLog->logInfo("got request: %s\n", req_str.c_str());
 
 	// 先过滤是否已注册的函数回调
 	std::string url = std::string(http_req->uri.p, http_req->uri.len);
@@ -128,7 +133,6 @@ void WebsocketServer::HandleHttpEvent(mg_connection *connection, http_message *h
 
 int WebsocketServer::SendWebsocketMsg(const std::string &msg){
     struct mg_connection *c;
-    printf("%s\n", msg.c_str()); /* Local echo. */
     for (c = mg_next(&m_mgr, NULL); c != NULL; c = mg_next(&m_mgr, c)) {
         if(isWebsocket(c)){
             mg_send_websocket_frame(c, WEBSOCKET_OP_TEXT, msg.c_str(), msg.size());
@@ -139,7 +143,7 @@ int WebsocketServer::SendWebsocketMsg(const std::string &msg){
 
 void WebsocketServer::SendRsp(mg_connection *connection, std::string rsp)
 {
-	printf("================= send response ==================\n");
+	sLog->logInfo("send response %s", rsp.c_str());
 	// 必须先发送header
 	mg_printf(connection, "%s", "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n");
 	// 以json形式返回

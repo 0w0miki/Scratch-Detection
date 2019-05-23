@@ -5,6 +5,7 @@
 mg_serve_http_opts WebsocketServer::s_websocket_option;
 std::string WebsocketServer::s_websocket_dir = "../web";
 std::unordered_map<std::string, ReqHandler> WebsocketServer::s_http_handler_map;
+std::function<bool()> WebsocketServer::s_ws_connect_handler;
 
 void* startServer(void* server){
 	std::shared_ptr<WebsocketServer> http_server = *(std::shared_ptr<WebsocketServer> *) server;

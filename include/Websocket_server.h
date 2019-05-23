@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <functional>
 #include "mongoose.h"
+#include "Log.hpp"
 
 // 定义http返回callback
 typedef void OnRspCallback(mg_connection *c, std::string);
@@ -41,12 +42,16 @@ public:
     void Init(const std::string &port); // 初始化设置
 	bool Start(); // 启动httpserver
 	bool Close(); // 关闭
-	void AddHttpHandler(const std::string &url, ReqHandler req_handler); // 注册事件处理函数
-	void RemoveHttpHandler(const std::string &url); // 移除时间处理函数
-    int SendWebsocketMsg(const std::string &msg);
-	static std::string s_websocket_dir; // 网页根目录
-	static mg_serve_http_opts s_websocket_option; // web服务器选项
-	static std::unordered_map<std::string, ReqHandler> s_http_handler_map; // 回调函数映射表
+	
+    void AddHttpHandler(const std::string &url, ReqHandler req_handler);    // 注册事件处理函数
+	void RemoveHttpHandler(const std::string &url);                         // 移除时间处理函数
+    void setWebsocketConnectHandler(std::function<bool ()> fun);            // websocket连接时处理
+
+    int SendWebsocketMsg(const std::string &msg);                           // 发送消息
+	static std::string s_websocket_dir;                                     // 网页根目录
+	static mg_serve_http_opts s_websocket_option;                           // web服务器选项
+	static std::unordered_map<std::string, ReqHandler> s_http_handler_map;  // 回调函数映射表
+    static std::function<bool()> s_ws_connect_handler;                      // websocket连接时处理函数
 };
 
 

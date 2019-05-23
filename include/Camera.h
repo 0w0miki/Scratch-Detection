@@ -15,8 +15,10 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include "Log.hpp"
 #include "CameraUtils.h"
 #include "json/json.h"
+#include "utils.h"
 
 #define FRAMEINFOOFFSET 14
 #define MEMORY_ALLOT_ERROR -1
@@ -37,6 +39,12 @@
 
 class Camera
 {
+enum CAMERA_STATE{
+    CAMERA_STOP,
+    CAMERA_RUN,
+    CAMERA_READY_TO_PAUSE,
+    CAMERA_PAUSE
+};
 
 private:
     GX_DEV_HANDLE g_device_;                                    ///< 设备句柄
@@ -58,7 +66,7 @@ private:
     std::vector<ROI> ROIs_;                                     ///< ROI
     std::queue<std::string>* unsolved_list_;                    ///< 未处理图像文件名列表
     std::deque<std::string>* work_name_list_;                   ///< 作业名列表
-    std::deque<int64_t>* work_count_list_;                      ///< 作业数列表
+    std::deque<int>* work_count_list_;                          ///< 作业数列表
     std::vector<std::vector<ROI>>* batch_ROI_list_;             ///< ROI列表
     std::vector<std::vector<ROI>>::iterator batch_ROI_iter_;    ///< ROI列表迭代器
 
@@ -76,6 +84,8 @@ private:
     int64_t count_;
 
     int fake_ptr_;
+
+    CAMERA_STATE state_ = CAMERA_STOP;
 
 protected:
 
@@ -106,13 +116,13 @@ public:
             std::queue<std::string>* unsolved_list);
     Camera( pthread_mutex_t* mutex, 
             std::queue<std::string>* unsolved_list, 
-            std::deque<int64_t>* work_count_list, 
+            std::deque<int>* work_count_list, 
             std::vector<std::vector<ROI>>* work_ROI_list,
             int64_t pixel_format = GX_PIXEL_FORMAT_BAYER_GR8);
     Camera( pthread_mutex_t* mutex,
             std::queue<std::string>* unsolved_list, 
             std::deque<std::string>* work_name_list, 
-            std::deque<int64_t>* work_count_list,
+            std::deque<int>* work_count_list,
             int64_t pixel_format = GX_PIXEL_FORMAT_BAYER_GR8);
     ~Camera();
     
@@ -142,6 +152,14 @@ public:
     int64_t getCount();
     // 修正fake_ptr位置
     int popList();
+    // 重置fake_ptr
+    inline void resetBias(){fake_ptr_ = 0;}
+
+    void setCount(int64_t count){count_ = count;}
+    inline bool isPause(){return CAMERA_PAUSE == state_;}
+    void callPause(){state_ = CAMERA_READY_TO_PAUSE;}
+    void restart(){state_ = CAMERA_RUN;}
+    bool isSoftTrigger();
 };
 
 

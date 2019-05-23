@@ -37,6 +37,30 @@
     display: inline;
     font-size: 1em;
 }
+.illustration{
+    margin-left: 1.5vw;
+    position: relative;
+}
+.illustration::before{
+    content: "";
+    border-radius: 50%;
+    box-sizing: border-box;
+    height: 1vw;
+    width: 1vw;
+    margin-top: 0.25vw;
+    left: -1.25vw;
+    position: absolute;
+    border:1px solid;
+}
+
+.illustration.current::before {
+    background-color: #eaffe6;
+    border-color: #2bd600;
+}
+.illustration.selected::before {
+    background-color: #00a1d6;
+    border-color: #00a1d6;
+}
 
 /* 列表 */
 ul{
@@ -45,6 +69,7 @@ ul{
     overflow-y: auto;
     bottom: 0;
     height: 80%;
+    scroll-behavior:smooth;
 }
 
 .list-title div:last-child,
@@ -69,17 +94,19 @@ ul{
     border-color: #00a1d6;
 }
 
-.task-item.cur{
-    border-color: #2bd600;
-    border-width: 3px;
-    background-color: #eaffe6;
-}
-
 .task-item.active{
     color:#fff;
     background-color: #00a1d6;
     border-color: #00a1d6;
 }
+
+.task-item.cur{
+    border-color: #2bd600;
+    border-width: 3px;
+    background-color: #eaffe6;
+    color: #000;
+}
+
 
 /* 按钮 */
 .button {
@@ -97,4 +124,15 @@ ul{
     border: 1px solid black;
     border-radius: 4px;
     margin: 0 6px;
+}
+
+#origin-img,
+#photo
+{
+    margin: 0 auto;
+    max-height: calc(100% - 1.7vw);
+    max-width: 100%;
+    display: block;
+    flex-direction: column;
+    justify-content: space-around;
 }

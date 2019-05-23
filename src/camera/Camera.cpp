@@ -46,7 +46,7 @@ file_dir_("../images/test/")
 
 Camera::Camera( pthread_mutex_t* mutex, 
                 std::queue<std::string>* unsolved_list, 
-                std::deque<int64_t>* work_count_list,
+                std::deque<int>* work_count_list,
                 std::vector<std::vector<ROI>>* batch_ROI_list,
                 int64_t pixel_format
                 ):
@@ -76,7 +76,7 @@ file_dir_("../images/test/")
 Camera::Camera( pthread_mutex_t* mutex, 
                 std::queue<std::string>* unsolved_list, 
                 std::deque<std::string>* work_name_list, 
-                std::deque<int64_t>* work_count_list,
+                std::deque<int>* work_count_list,
                 int64_t pixel_format
                 ):
 cam_id_(1),
@@ -128,7 +128,7 @@ int Camera::PreForImage(){
     g_frame_data_.pImgBuf = malloc(payload_size);
     if (g_frame_data_.pImgBuf == NULL)
     {
-        printf("<Failed to allocate memory>\n");
+        sLog->logError("Failed to allocate memory");
         return MEMORY_ALLOT_ERROR;
     }
 
@@ -136,7 +136,7 @@ int Camera::PreForImage(){
     g_raw8_buffer_ = malloc(payload_size);
     if (g_raw8_buffer_ == NULL)
     {
-        printf("<Failed to allocate memory>\n");
+        sLog->logError("Failed to allocate memory");
         return MEMORY_ALLOT_ERROR;
     }
 
@@ -144,7 +144,7 @@ int Camera::PreForImage(){
     g_rgb_frame_data_ = malloc(payload_size * 3);
     if (g_rgb_frame_data_ == NULL)
     {
-        printf("<Failed to allocate memory>\n");
+        sLog->logError("Failed to allocate memory");
         return MEMORY_ALLOT_ERROR;
     }
     
@@ -160,7 +160,7 @@ int Camera::PreForImage(){
         g_frameinfo_data_ = malloc(g_frameinfo_datasize_);
         if(g_frameinfo_data_ == NULL)
         {
-            printf("<Failed to allocate memory>\n");
+            sLog->logError("Failed to allocate memory");
             return MEMORY_ALLOT_ERROR;
         }
     }
@@ -191,7 +191,7 @@ int Camera::UnPreForImage(){
     ret = pthread_cancel(g_acquire_thread_);
     if(ret != 0)
     {
-        printf("<Failed to release resources>\n");
+        sLog->logError("Failed to release resources");
         return ret;
     }
 	
@@ -254,6 +254,12 @@ void Camera::ProcGetImage(){
 
     while(g_get_image_)
     {
+        if(state_ == CAMERA_PAUSE || state_ == CAMERA_READY_TO_PAUSE){
+            if(state_ = CAMERA_READY_TO_PAUSE)
+                state_ = CAMERA_PAUSE;
+            continue;
+        }
+        
         status = GXGetImage(g_device_, &g_frame_data_, 100);
         
         if(status == GX_STATUS_SUCCESS)
@@ -262,13 +268,13 @@ void Camera::ProcGetImage(){
             {
                 
                 g_time_counter_.Begin();
-                printf("<Successful acquisition: Width: %d Height: %d>\n", g_frame_data_.nWidth, g_frame_data_.nHeight);
+                sLog->logInfo("Successful acquisition: Width: %d Height: %d", g_frame_data_.nWidth, g_frame_data_.nHeight);
                 status = GXIsImplemented(g_device_, GX_BUFFER_FRAME_INFORMATION, &is_implemented);
                 if(status == GX_STATUS_SUCCESS)
                 {
                     if(true == is_implemented)
                     {
-                        printf("<Frame number: %d>\n", GetCurFrameIndex());
+                        sLog->logInfo("Frame number: %d", GetCurFrameIndex());
                     }
                 }
                 //保存Raw数据
@@ -298,7 +304,7 @@ void Camera::ProcGetImage(){
                 // cv::imshow("camera original image",image);
                 // cv::waitKey();
 
-                printf("time of process %ld us\n", g_time_counter_.End());
+                sLog->logDebug("time of process %ld us", g_time_counter_.End());
             // }else{
             //     SaveMono(g_frame_data_.pImgBuf, g_frame_data_.nWidth, g_frame_data_.nHeight);
             //     printf("time of process %ld us\n", g_time_counter_.End());
@@ -325,7 +331,7 @@ int Camera::init(){
     open_param.accessMode = GX_ACCESS_EXCLUSIVE;
     open_param.openMode = GX_OPEN_INDEX;
     open_param.pszContent = cam_id_string;       
-    printf("<choose device %s>\n", open_param.pszContent);
+    sLog->logInfo("choose device %s", open_param.pszContent);
 
     //初始化库
     status = GXInitLib();
@@ -346,7 +352,7 @@ int Camera::init(){
 
     if(device_number <= 0)
     {
-        printf("<No device>\n");
+        sLog->logWarn("No device");
         return 0;
     }
     else
@@ -355,11 +361,11 @@ int Camera::init(){
         status = GXOpenDevice(&open_param, &g_device_);
         if(status == GX_STATUS_SUCCESS)
         {
-            printf("<Open device success>\n");
+            sLog->logInfo("Open device success");
         }
         else
         {
-            printf("<Open devide fail>\n");
+            sLog->logError("<Open devide fail");
             return 0;			
         }
     }
@@ -402,7 +408,7 @@ int Camera::init(){
     ret = PreForImage();
     if(ret != 0)
     {
-        printf("<Failed to prepare for acquire image>\n");
+        sLog->logError("Failed to prepare for acquire image");
         status = GXCloseDevice(g_device_);
         if(g_device_ != NULL)
         {
@@ -438,7 +444,7 @@ int Camera::start(){
     int ret = pthread_create(&g_acquire_thread_, NULL, ProcGetImage_pth, this);
     if(ret != 0)
     {
-        printf("<Failed to create the collection thread>\n");
+        sLog->logError("Failed to create the collection thread");
         return -1;
     }
     pthread_detach(g_acquire_thread_);
@@ -468,7 +474,7 @@ int Camera::stop(){
     }
 
     //关闭设备
-    printf("<close device>\n");
+    sLog->logInfo("close device");
     status = GXCloseDevice(g_device_);
     if(status != GX_STATUS_SUCCESS)
     {    
@@ -495,12 +501,12 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
     FILE* ff = NULL;
     std::string work_name;
     bool push_unsolved_list = true;
-    printf("[===DEBUG===] fake_ptr is: %d, size: %d\n", fake_ptr_, work_name_list_->size());
+    sLog->logDebug("fake_ptr is: %d, size: %d", fake_ptr_, work_name_list_->size());
     if(!work_name_list_->empty() && fake_ptr_ < work_name_list_->size()){
         work_name = work_name_list_->at(fake_ptr_);
     }else{
         // 等detection pop掉
-        printf("[WARN] List out of range!!! ptr:%d, size:%d\n",fake_ptr_,work_name_list_->size());
+        sLog->logWarn("List out of range!!! ptr:%d, size:%d",fake_ptr_,work_name_list_->size());
         work_name = "unlisted_";
         push_unsolved_list = false;
     }
@@ -524,7 +530,7 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
             unsolved_list_->push(name);
             pthread_mutex_unlock(mutex_);
         }
-        printf("<Save %s success>\n", name);
+        sLog->logInfo("Save %s success", name);
     }
     if(!work_count_list_->empty() && fake_ptr_ < work_count_list_->size()){
         count_++;
@@ -534,7 +540,7 @@ void Camera::SavePPMFile(void *image_buffer, size_t width, size_t height){
                 count_ = 1;
             }else{
                 fake_ptr_ = 0;
-                printf("[WARN] work end!");
+                sLog->logWarn("work end!");
             }
         }
     }
@@ -547,12 +553,12 @@ void Camera::SaveMono(void *image_buffer, size_t width, size_t height){
     FILE* ff = NULL;
     std::string work_name;
     bool push_unsolved_list = true;
-    printf("[===DEBUG===] fake_ptr is: %d, size: %d\n", fake_ptr_, work_name_list_->size());
+    sLog->logDebug("Fake_ptr is: %d, size: %d", fake_ptr_, work_name_list_->size());
     if(!work_name_list_->empty() && fake_ptr_ < work_name_list_->size()){
         work_name = work_name_list_->at(fake_ptr_);
     }else{
         // 等detection pop掉
-        printf("[WARN] List out of range!!! ptr:%d, size:%d\n",fake_ptr_,work_name_list_->size());
+        sLog->logWarn("List out of range!!! ptr:%d, size:%d",fake_ptr_,work_name_list_->size());
         work_name = "unlisted_";
         push_unsolved_list = false;
     }
@@ -576,7 +582,7 @@ void Camera::SaveMono(void *image_buffer, size_t width, size_t height){
             unsolved_list_->push(name);
             pthread_mutex_unlock(mutex_);
         }
-        printf("<Save %s success>\n", name);
+        sLog->logInfo("Save %s success", name);
     }
     if(!work_count_list_->empty() && fake_ptr_ < work_count_list_->size()){
         count_++;
@@ -586,7 +592,7 @@ void Camera::SaveMono(void *image_buffer, size_t width, size_t height){
                 count_ = 1;
             }else{
                 fake_ptr_ = 0;
-                printf("[WARN] work end!");
+                sLog->logWarn("work end!");
             }
         }
     }
@@ -617,13 +623,13 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
     for(size_t i = 0;i<ROIs.size();i++){
         sprintf(name, "%s_%ld.ppm", work_name_list_->at(fake_ptr_).c_str(), count_);
         sprintf(filename,"%s%s",file_dir_.data(),name);
-        printf("filename:%s\n",filename);
+        sLog->logInfo("filename:%s",filename);
         ff=fopen(filename,"wb");
         if(ff != NULL)
         {
             fprintf(ff, "P6\n" "%d %d\n255\n", ROIs[i].w, ROIs[i].h);
             ROI_buffer = image_buffer + (ROIs[i].y * width + ROIs[i].x) * 3;
-            printf("x,y %d\n",(ROIs[i].y * ROIs[i].w + ROIs[i].x) * 3);
+            sLog->logInfo("x,y %d",(ROIs[i].y * ROIs[i].w + ROIs[i].x) * 3);
             for(size_t j = 0; j < ROIs[i].h; j++){
                 ROI_buffer = ROI_buffer + width * 3;
                 fwrite(ROI_buffer, 1, ROIs[i].w * 3, ff);
@@ -633,7 +639,7 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
             pthread_mutex_lock(mutex_);
             unsolved_list_->push(name);
             pthread_mutex_unlock(mutex_);
-            printf("<Save with ROI %s success>\n", name);
+            sLog->logInfo("Save with ROI %s success", name);
         }
         count_++;
         if(count_ > work_count_list_->at(fake_ptr_)){
@@ -645,7 +651,7 @@ void Camera::SavePPMwithROIs(void *image_buffer, size_t width, size_t height, st
                 batch_ROI_iter_++;
                 setROI(*batch_ROI_iter_);
             }else{
-                printf("[WARN] the batch is end\n");
+                sLog->logWarn("the batch is end");
             }
             break;
         }
@@ -686,7 +692,7 @@ int Camera::setTrigger(int type){
             g_device_ = NULL;
         }
         status = GXCloseLib();
-        return 0;
+        return -1;
     }
 
     switch(type){
@@ -702,28 +708,28 @@ int Camera::setTrigger(int type){
                     g_device_ = NULL;
                 }
                 status = GXCloseLib();
-                return 0;
+                return -1;
             }
             break;
         case HARD_TRIGGER:
-            printf("set triger: hardware ");
+            sLog->logInfo("set triger: hardware ");
             //设置触发源为外触发
             switch(triger_line_){
                 case TRIGER_LINE0:
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE0);
-                    printf("line0");
+                    sLog->logInfo("line0");
                     break;
                 case TRIGER_LINE1:
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE1);
-                    printf("line1");
+                    sLog->logInfo("line1");
                     break;
                 case TRIGER_LINE2:
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE2);
-                    printf("line2");
+                    sLog->logInfo("line2");
                     break;
                 case TRIGER_LINE3:
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, GX_TRIGGER_SOURCE_LINE3);
-                    printf("line3");
+                    sLog->logInfo("line3");
                     break;
             }
             if(status != GX_STATUS_SUCCESS)
@@ -735,23 +741,23 @@ int Camera::setTrigger(int type){
                     g_device_ = NULL;
                 }
                 status = GXCloseLib();
-                return 0;
+                return -1;
             }
             switch(triger_edge_){
                 case TRIGER_FALLING:
                     //设置触发激活方式为下降沿
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_FALLINGEDGE);
                     status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_FALLING, 0);
-                    printf(" fall");
+                    sLog->logInfo(" fall");
                     break;
                 case TRIGER_RISING:
                     //设置触发激活方式为上升沿
                     status = GXSetEnum(g_device_, GX_ENUM_TRIGGER_ACTIVATION, GX_TRIGGER_ACTIVATION_RISINGEDGE);
                     status = GXSetFloat(g_device_, GX_FLOAT_TRIGGER_FILTER_RAISING, 0);
-                    printf(" rise");
+                    sLog->logInfo(" rise");
                     break;
             }
-            printf("\n");
+            // printf("\n");
             if(status != GX_STATUS_SUCCESS)
             {
                 GetErrorString(status);
@@ -761,11 +767,11 @@ int Camera::setTrigger(int type){
                     g_device_ = NULL;
                 }
                 status = GXCloseLib();
-                return 0;
+                return -1;
             }
             break;
     }
-
+    return 0;
 }
 
 //-------------------------------------------------
@@ -785,7 +791,7 @@ int Camera::setShutter(double shutterTime){
     }
     // 限幅
     limitDoubleValue(shutterTime,shutterRange);
-    printf("exposure time %f, range %f, %f \n", shutterTime, shutterRange.dMin, shutterRange.dMax);
+    sLog->logInfo("exposure time %f, range %f, %f", shutterTime, shutterRange.dMin, shutterRange.dMax);
     status = GXSetFloat(g_device_, GX_FLOAT_EXPOSURE_TIME, shutterTime);
     if(status != GX_STATUS_SUCCESS)
     {
@@ -819,7 +825,7 @@ int Camera::setBalance(double ratio, int channel){
                 GetErrorString(status);
             }
             //设置R白平衡系数
-            printf("set red balance ratio %f, range %f ,%f\n",ratio, ratioRange.dMin, ratioRange.dMax);
+            sLog->logInfo("set red balance ratio %f, range %f ,%f",ratio, ratioRange.dMin, ratioRange.dMax);
             break;
         case CAM_GREEN_BALANCE_CHANNEL:
             //选择G白平衡通道
@@ -834,7 +840,7 @@ int Camera::setBalance(double ratio, int channel){
             {
                 GetErrorString(status);
             }
-            printf("set green balance ratio %f, range %f ,%f\n",ratio, ratioRange.dMin, ratioRange.dMax);
+            sLog->logInfo("set green balance ratio %f, range %f ,%f",ratio, ratioRange.dMin, ratioRange.dMax);
             break;
 
         case CAM_BLUE_BALANCE_CHANNEL:
@@ -851,7 +857,7 @@ int Camera::setBalance(double ratio, int channel){
                 GetErrorString(status);
             }
             //设置B白平衡系数
-            printf("set blue balance ratio %f, range %f ,%f\n",ratio, ratioRange.dMin, ratioRange.dMax);
+            sLog->logInfo("set blue balance ratio %f, range %f ,%f",ratio, ratioRange.dMin, ratioRange.dMax);
             break;
     }
     // 设置白平衡系数
@@ -888,7 +894,7 @@ int Camera::setGain(double gain_value){
     limitDoubleValue(gain_value, gainRange);
     //设置增益值
     status = GXSetFloat(g_device_, GX_FLOAT_GAIN, gain_value);
-    printf("set gain %f, range %f ,%f\n",gain_value, gainRange.dMin, gainRange.dMax);
+    sLog->logInfo("set gain %f, range %f ,%f",gain_value, gainRange.dMin, gainRange.dMax);
     return status;
 }
 
@@ -915,7 +921,7 @@ int Camera::applyParam(){
     std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
     if(!paramfile){
-        printf("[ERROR] failed to open settings.json\n");
+        sLog->logError("Failed to open settings.json");
         return -1;
     }else{
         Json::CharReaderBuilder builder;
@@ -933,29 +939,29 @@ int Camera::applyParam(){
             triger_edge_   = root["camera"]["trigger"]["edge"].empty()      ?  triger_edge_   : root["camera"]["trigger"]["edge"].asInt();
             file_dir_      = root["detection"]["file"]["image directory"].empty() ? file_dir_ : root["detection"]["file"]["image directory"].asString();
         }else{
-            std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
+            sLog->logError("Jsoncpp error: %s", errs.c_str());
         }
         paramfile.close();
     }
 
     // 设置曝光
     int ret = setShutter(shutter_time_);
-    if(ret != 0) printf("[WARN] failed to set shutter");
+    if(ret != 0) sLog->logWarn("failed to set shutter");
 
     // 设置白平衡
     ret = setBalance(red_balance_, CAM_RED_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set red balance");
+    if(ret != 0) sLog->logWarn("failed to set red balance");
     ret = setBalance(green_balance_, CAM_GREEN_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set green balance");
+    if(ret != 0) sLog->logWarn("failed to set green balance");
     ret = setBalance(blue_balance_, CAM_BLUE_BALANCE_CHANNEL);
-    if(ret != 0) printf("[WARN] failed to set blue balance");
+    if(ret != 0) sLog->logWarn("failed to set blue balance");
 
     // 设置增益
     ret = setGain(gain_value_);
-    if(ret != 0) printf("[WARN] failed to set gain");
+    if(ret != 0) sLog->logWarn("failed to set gain");
 
-    printf("set trigger line: %d\n", triger_line_);
-    printf("set trigger edge: %d\n", triger_edge_);
+    sLog->logInfo("set trigger line: %d", triger_line_);
+    sLog->logInfo("set trigger edge: %d", triger_edge_);
     return 0;
 }
 
@@ -966,9 +972,15 @@ int64_t Camera::getCount(){
 int Camera::popList(){
     if(fake_ptr_ > 0){
         fake_ptr_ -= 1;
-        printf("============================================================================= pop %d ============================================================================\n",fake_ptr_);
+        sLog->logInfo("Detection pop call camera change index to %d ",fake_ptr_);
         return 0;
     }else{
         return -1;
     }
+}
+
+bool Camera::isSoftTrigger(){
+    int64_t source;
+    GX_STATUS status = GXGetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, &source);
+    return source == (GX_TRIGGER_SOURCE_ENTRY)GX_TRIGGER_SOURCE_SOFTWARE;
 }

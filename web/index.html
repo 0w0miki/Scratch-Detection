@@ -15,16 +15,8 @@
                     <div class = "dynamic" id="cur_work_id">
                         id
                     </div>
-                </div>
-                <div class="block">
                     <div class="statement">
-                        当前已拍摄:
-                    </div>
-                    <div class="dynamic" id="cur_cam">
-                        test
-                    </div>
-                    <div class="statement">
-                        当前已检测:
+                        已检测:
                     </div>
                     <div class="dynamic" id="cur_detect">
                         test
@@ -36,6 +28,14 @@
                         total
                     </div>
                 </div>
+                <div class="block">
+                    <div class="statement">
+                        当前模式: 
+                    </div>
+                    <div class="dynamic" id="trigger_mode">软触发</div>
+                    <input id="mode_button" class="button" type = "button" value="切换"/>
+                    <input id="trigger_button" class="button" type = "button" value="触发拍摄"/>
+                </div>
                 <!-- TODO "搜索输入框" -->
                 <div class="block">
                     <div class="statement">
@@ -44,18 +44,22 @@
                     <input id="page_button" class="button" type = "button" value="设置页数"/>
                     <input id="img_button" class="button" type = "button" value="查看图像"/>
                 </div>
-                <div>作业列表:</div>
+                <div class="block">
+                    <div>作业列表:</div>
+                    <div class="illustration current">当前作业</div>
+                    <div class="illustration selected">选中作业</div>
+                </div>
                 <div class="block list-title">
                     <div>work_id</div>
                     <div>页数</div>
                 </div>
                 <!-- TODO "回到cur的按钮" -->
                 <ul>
-                    <li class="task-item">
+                    <li class="task-item cur active">
                         <div>id</div>
                         <div>page</div>
                     </li>
-                    <li class="task-item cur active">
+                    <li class="task-item">
                         <div>id</div>
                         <div>page</div>
                     </li>
@@ -83,8 +87,9 @@
                     <img id="origin-img" src="" alt="">
                 </div>
                 <div class="imgbox">
-                    拍摄图
+                    结果图
                     <img id="photo" src="" alt="">
+                    <!-- <canvas id="photo" src="" alt=""></canvas> -->
                 </div>
             </div>
         </div>

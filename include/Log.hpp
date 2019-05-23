@@ -11,7 +11,6 @@
 
 using namespace std;
 
-static int FastSecondToDate(const time_t &unix_sec, struct tm &tm, int time_zone);
 
 // 日志调用方法后将 时间和记录信息 推到处理队列里面 之后写入文件
 class Logger

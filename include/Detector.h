@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <queue>
 #include "utils.h"
+#include "Log.hpp"
 #include "Serial.h"
 #include "Camera.h"
 #include "json/json.h"
@@ -28,6 +29,13 @@
 
 class Detector
 {
+enum DETECTOR_STATE{
+    DETECTOR_STOP,
+    DETECTOR_RUN,
+    DETECTOR_READY_TO_PAUSE,
+    DETECTOR_PAUSE
+};
+
 private:
     // 图
     cv::Mat template_img_;
@@ -57,8 +65,8 @@ private:
     int scratch_pixel_num_;
 
     // 计数器
-    int64_t count_;
-    int64_t id_;
+    int count_;
+    int64_t id_count_;
 
     // 类型 0-检测A4 1-检测单张
     int8_t input_type_;
@@ -89,9 +97,9 @@ private:
 
     // 批次信息
     std::deque<std::string>* work_name_list_;
-    std::deque<int64_t>* work_count_list_;
+    std::deque<int>* work_count_list_;
     std::deque<string>* batch_origin_list_;
-    std::deque<int64_t>* batch_count_list_;
+    std::deque<int>* batch_count_list_;
     std::vector<cv::Point2i>* desired_size_list_;
     std::vector<cv::Point2i>::iterator desired_size_iter_;
 
@@ -106,6 +114,9 @@ private:
 
     // remap
     cv::Mat remap_x_, remap_y_;
+
+    // 
+    DETECTOR_STATE state_ = DETECTOR_STOP;
 
 protected:
     int findLabel(cv::Mat image_gray, cv::Mat &match_templ, std::vector<cv::Point2f> & points);
@@ -134,7 +145,7 @@ public:
     Detector(pthread_mutex_t* mutex, 
             std::queue<string>* list, 
             std::deque<string>* batch_origin_list, 
-            std::deque<int64_t>* batch_count_list, 
+            std::deque<int>* batch_count_list, 
             std::vector<cv::Point2i>* desired_size_list, 
             pthread_t threadId = 2);
 
@@ -143,9 +154,9 @@ public:
             Json::Value* root, 
             std::queue<string>* list, 
             std::deque<std::string>* work_name_list_, 
-            std::deque<int64_t>* work_count_list_, 
+            std::deque<int>* work_count_list_, 
             std::deque<string>* batch_origin_list, 
-            std::deque<int64_t>* batch_count_list, 
+            std::deque<int>* batch_count_list, 
             int detectionId = 0, 
             pthread_t threadId = 2);
     ~Detector();
@@ -162,7 +173,13 @@ public:
     void setThresh();
     int stopThread();
     int sendMsg();
-    int64_t getCount();
+    int getCount();
+    int64_t getIdCount();
+    void setCount(int num){count_ = num;}
+    void setIdCount(int64_t id){id_count_ = id;}
+    inline void callPause(){state_ = DETECTOR_READY_TO_PAUSE;}
+    inline void restart(){state_ = DETECTOR_RUN;}
+    inline bool isPause(){return DETECTOR_PAUSE == state_;}
 };
 
 

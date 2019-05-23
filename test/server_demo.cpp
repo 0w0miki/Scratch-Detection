@@ -17,9 +17,9 @@ std::string HttpServer::s_web_dir = "../web";
 std::unordered_map<std::string, ReqHandler> HttpServer::s_handler_map;
 // 批次信息
 std::deque<std::string> work_name_list;
-std::deque<int64_t> work_count_list;
+std::deque<int> work_count_list;
 std::deque<std::string> batch_origin_list;
-std::deque<int64_t> batch_count_list;
+std::deque<int> batch_count_list;
 
 std::string client_host;
 int server_port;

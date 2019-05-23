@@ -18,8 +18,8 @@ void* thread_fun(void* args){
         tv.tv_usec = sleeptime * 1000;
         select(0,NULL,NULL,NULL,&tv);
         
-        sLog->logInfo("Test thread %d %d", id, n);
-        printf("Thread %d: %d\n", id, n);
+        sLog->logInfo("Test thread %ld %d", id, n);
+        printf("Thread %ld: %d\n", id, n);
         n++;
     }
     
@@ -27,25 +27,25 @@ void* thread_fun(void* args){
 
 int main(int argc, char const *argv[])
 {
-    for(int i = 1; i < 7; i++)
+    for(pthread_t i = 1; i < 7; i++)
     {
-        pthread_t id = i;
         ThreadArg arg = {i,i*100};
-        pthread_create(&id,NULL,thread_fun,(void*)&arg);
+        pthread_create(&i,NULL,thread_fun,(void*)&arg);
     }
 #ifdef TEST_SINGLE_THREAD    
     sLog->init("../log","test",Logger::ERROR);
 #else
     bool run = true;
     while(run){
-        int c = getchar();
-        switch (c)
+        char ch = getchar();
+        switch (ch)
         {
-            case 27:
             case 'x':
             case 'X':
+            case 27:
                 run = false;
-                break;        
+                break;
+            
             default:
                 break;
         }

@@ -93,7 +93,7 @@
         // server port
         "server_port":7999,
         // result url
-        // "result_url":"/api/Print/addErrorReport",
+        "result_url":"/api/Print/addErrorReport",
         // client port
         "client_port":7999
     }

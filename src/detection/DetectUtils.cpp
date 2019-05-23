@@ -722,9 +722,9 @@ Mat getPaper(Mat src_img, Mat& roi_img)
 			}
 
             warpAffine(src_img, rot_img, rotation, image_size);
-			namedWindow("rot_img", WINDOW_NORMAL);
-			imshow("rot_img", rot_img);
-            waitKey();
+			// namedWindow("rot_img", WINDOW_NORMAL);
+			// imshow("rot_img", rot_img);
+            // waitKey();
 
             // printf("x %d, y %d, width %d, height %d",imgx,imgy,imgwidth, imgheight);
             cout<<roi_img.size()<<endl;

@@ -106,7 +106,7 @@ CurlClient::~CurlClient()
     }
     catch(...)    //吞下异常，防止异常逃离析构函数
     {
-        printf("~CurlClient api exception error(%d) \n", errno);
+        sLog->logError("~CurlClient api exception error(%d) ", errno);
     }
  
 }
@@ -128,7 +128,7 @@ int CurlClient::globalInit()
         nCode = nLockJudge;
         if(0 != nCode)
         {
-            printf("globalInit mutex lock error(%d)\n", errno);
+            sLog->logError("globalInit mutex lock error(%d)", errno);
             return nCode;
         }
  
@@ -142,7 +142,7 @@ int CurlClient::globalInit()
             }
             else
             {
-                printf("globalInit error(%d)\n", errno);
+                sLog->logError("globalInit error(%d)", errno);
                 nCode = -1;      //CURL全局资源初始化失败
             }
  
@@ -160,7 +160,7 @@ int CurlClient::globalInit()
             pthread_mutex_unlock(&s_MutexLock);
         }
  
-        printf("global init api exception(%d)\n", errno);
+        sLog->logError("global init api exception(%d)", errno);
         return -1;                           //异常接口
     }
  
@@ -182,7 +182,7 @@ int CurlClient::globalCleanup()
         nCode = nLockJudge;
         if(0 != nCode)
         {
-            printf("globalCleanup mutex lock error(%d)\n", errno);
+            sLog->logError("globalCleanup mutex lock error(%d)", errno);
             return nCode;
         }
  
@@ -204,7 +204,7 @@ int CurlClient::globalCleanup()
         {
             pthread_mutex_unlock(&s_MutexLock);
         }
-        printf("globalCleanup api exception(%d)\n", errno);
+        sLog->logError("globalCleanup api exception(%d", errno);
         return -1;                           //异常接口
     }
  
@@ -219,7 +219,7 @@ int CurlClient::initCurlResource()
     this->m_pCurl = curl_easy_init();
     if(NULL == this->m_pCurl)
     {
-        printf("curl easy init failure \n");
+        sLog->logError("curl easy init failure ");
         return -1;
     }
     else
@@ -239,7 +239,7 @@ int CurlClient::releaseCurlResource()
     //判断参数的合法性
     if(NULL == this->m_pCurl)
     {
-        printf("releaseCurlResource curl ptr is null \n");
+        sLog->logError("releaseCurlResource curl ptr is null ");
         return -1;       //CURL指针为NULL
     }
     
@@ -260,7 +260,7 @@ int CurlClient::setUserPwd()
 {
     if(NULL == this->m_pCurl)
     {
-        printf("setUserPwd curl ptr is null \n");
+        sLog->logError("setUserPwd curl ptr is null");
         return -1;       //CURL指针为NULL
     }
  
@@ -312,7 +312,7 @@ int CurlClient::setDataFormat(const int nFormat)
 {
     if(NULL == this->m_pCurl)
     {
-        printf("setDataFormat curl ptr is null \n");
+        sLog->logError("setDataFormat curl ptr is null");
         return -1;       //CURL指针为NULL
     }
  
@@ -332,7 +332,7 @@ int CurlClient::setDataFormat(const int nFormat)
         this->m_pHeaders = curl_slist_append(NULL, (char*)sFormatStr.c_str());
         if(NULL == this->m_pHeaders)
         {
-            printf("setDataFormat set format error(%d) \n", errno);
+            sLog->logError("setDataFormat set format error(%d) ", errno);
             return -1;
         }
         curl_easy_setopt(this->m_pCurl, CURLOPT_HTTPHEADER, this->m_pHeaders);
@@ -388,7 +388,7 @@ size_t CurlClient::httpDataWriter(void* buffer, size_t size, size_t nmemb, void*
     }
     else
     {
-        printf("CurlClient httpDataWriter data error(%d) \n", errno);
+        sLog->logError("CurlClient httpDataWriter data error(%d)", errno);
         return 0;
     }
  
@@ -459,7 +459,7 @@ int CurlClient::sendMsg(const std::string& sMsg,
         }
         default:
         {
-            printf("sendMsg method error\n");
+            sLog->logError("sendMsg method error");
             return -1;
         }
     }
@@ -486,7 +486,7 @@ int CurlClient::sendResult(std::string &sRec){
         if (parseFromStream(builder, ss, &root, &errs)){
             if(!root.empty()){
                 if(root["StatusCode"].empty()){
-                    printf("[ERROR] no StatusCode term");
+                    sLog->logError("no StatusCode term");
                 }else if(root["StatusCode"].isString()){
                     std::string response = root["StatusCode"].asString();
                     if(!response.empty()){
@@ -495,13 +495,13 @@ int CurlClient::sendResult(std::string &sRec){
                     }
                 }else{
                     result_root_->clear();
-                    printf("[ERROR] response is not string");
+                    sLog->logError("response is not string");
                 }
             }else{
-                printf("[ERROR] nothing in response");
+                sLog->logError("nothing in response");
             }
         }else{
-            std::cout << "[ERROR] Jsoncpp error: " << errs << std::endl;
+            sLog->logError("Jsoncpp error: %s", errs.c_str());
         }
     }
     pthread_mutex_unlock(result_mutex_);
@@ -519,26 +519,26 @@ int CurlClient::messagePublicMethod(const int nFormat)
     {
         if(NULL == this->m_pCurl)
         {
-            printf("messagePublicMethod curl ptr is null\n");
+            sLog->logError("messagePublicMethod curl ptr is null");
             return -1;       //CURL指针为NULL
         }
 		
 		//参数合法性检测
 		if(0 > nFormat)
 		{
-			printf("messagePublicMethod params error, nFormat=%d \n", nFormat);
+			sLog->logError("messagePublicMethod params error, nFormat=%d ", nFormat);
             return -1;       //CURL指针为NULL
 		}
  
         //指定url
         if(this->m_sIP.empty())
         {
-            printf("messagePublicMethod ip is empty\n");
+            sLog->logError("messagePublicMethod ip is empty");
             return -1;
         }
         std::string sUrl;
         sUrl = sUrl + "http://" + this->m_sIP + this->m_sUrlPath;
-        printf("sUrl: %s\n", sUrl.c_str());
+        sLog->logInfo("sUrl: %s", sUrl.c_str());
         curl_easy_setopt(this->m_pCurl, CURLOPT_URL, (char*)sUrl.c_str());
         curl_easy_setopt(this->m_pCurl, CURLOPT_PORT, this->m_nPort);
  
@@ -546,7 +546,7 @@ int CurlClient::messagePublicMethod(const int nFormat)
         nCode = setUserPwd();
         if(0 != nCode)
         {
-            printf("messagePublicMethod setUserPwd error(%d) \n", errno);
+            sLog->logError("messagePublicMethod setUserPwd error(%d) ", errno);
             return -1;
         }
  
@@ -554,7 +554,7 @@ int CurlClient::messagePublicMethod(const int nFormat)
         nCode = setDataFormat(nFormat);
         if(0 != nCode)
         {
-            printf("messagePublicMethod setDataFormat error(%d) \n", errno);
+            sLog->logError("messagePublicMethod setDataFormat error(%d) ", errno);
             return -1;
         }
  
@@ -586,7 +586,7 @@ int CurlClient::messagePublicMethod(const int nFormat)
     }
     catch(...)
     {
-        printf("messagePublicMethod api exception(%d)\n", errno);
+        sLog->logError("messagePublicMethod api exception(%d)", errno);
         return -1;     //发送信息公共接口异常
     }
 }
@@ -603,7 +603,7 @@ int CurlClient::dealResCode(const CURLcode res)
 	int nCode = 0;
     const char* pRes = NULL;
     pRes = curl_easy_strerror(res);
-    printf("%s\n",pRes);
+    sLog->logInfo("curl res: %s",pRes);
  
     //http返回码
     long lResCode = 0;
@@ -620,7 +620,7 @@ int CurlClient::dealResCode(const CURLcode res)
         {
             nCode = -1;    //其它错误返回-1
         }
-        printf("curl send msg error: pRes=%s, lResCode=%ld \n", pRes, lResCode);
+        sLog->logError("curl send msg error: pRes=%s, lResCode=%ld", pRes, lResCode);
     }
 	
 	return nCode;
@@ -643,7 +643,7 @@ int CurlClient::putMsg(const std::string& sMsg, const int nFormat, std::string& 
     {
 	    if(NULL == this->m_pCurl)
         {
-            printf("putMsg curl ptr is null\n");
+            sLog->logError("putMsg curl ptr is null");
             return -1;       //CURL指针为NULL
         }
 		
@@ -662,7 +662,7 @@ int CurlClient::putMsg(const std::string& sMsg, const int nFormat, std::string& 
         nCode = messagePublicMethod(nFormat);
         if(0 != nCode)
         {
-            printf("putMsg call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("putMsg call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -675,7 +675,7 @@ int CurlClient::putMsg(const std::string& sMsg, const int nFormat, std::string& 
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		return nCode;
@@ -683,7 +683,7 @@ int CurlClient::putMsg(const std::string& sMsg, const int nFormat, std::string& 
     }
     catch(...)
     {
-        printf("putMsg api exception(%d)\n", errno);
+        sLog->logError("putMsg api exception(%d)", errno);
         return -1;         // 接口异常
     }
 }
@@ -705,7 +705,7 @@ int CurlClient::deleteMsg(const std::string& sMsg, const int nFormat, std::strin
     {
         if(NULL == this->m_pCurl)
         {
-            printf("deleteMsg curl ptr is null\n");
+            sLog->logError("deleteMsg curl ptr is null");
             return -1;       //CURL指针为NULL
         }
  
@@ -716,7 +716,7 @@ int CurlClient::deleteMsg(const std::string& sMsg, const int nFormat, std::strin
         nCode = messagePublicMethod(nFormat);
         if(0 != nCode)
         {
-            printf("deleteMsg call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("deleteMsg call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -729,14 +729,14 @@ int CurlClient::deleteMsg(const std::string& sMsg, const int nFormat, std::strin
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		return nCode;
     }
     catch(...)
     {
-        printf("deleteMsg api exception(%d)\n", errno);
+        sLog->logError("deleteMsg api exception(%d)", errno);
         return -1;         //接口异常
     }
  
@@ -759,7 +759,7 @@ int CurlClient::postMsg(const std::string& sMsg, const int nFormat, std::string&
     {
         if(NULL == this->m_pCurl)
         {
-            printf("postMsg curl ptr is null\n");
+            sLog->logError("postMsg curl ptr is null");
             return -1;       //CURL指针为NULL
         }
  
@@ -778,7 +778,7 @@ int CurlClient::postMsg(const std::string& sMsg, const int nFormat, std::string&
         nCode = messagePublicMethod(nFormat);
         if(0 != nCode)
         {
-            printf("postMsg call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("postMsg call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -791,7 +791,7 @@ int CurlClient::postMsg(const std::string& sMsg, const int nFormat, std::string&
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		return nCode;
@@ -799,7 +799,7 @@ int CurlClient::postMsg(const std::string& sMsg, const int nFormat, std::string&
     }
     catch(...)
     {
-        printf("postMsg api exception(%d)\n", errno);
+        sLog->logError("postMsg api exception(%d)", errno);
         return -1;         // 接口异常
     }
  
@@ -821,7 +821,7 @@ int CurlClient::getMsg(const std::string& sMsg, const int nFormat, std::string& 
     {
         if(NULL == this->m_pCurl)
         {
-            printf("getMsg curl ptr is null\n");
+            sLog->logError("getMsg curl ptr is null");
             return -1;       //CURL指针为NULL
         }
  
@@ -832,7 +832,7 @@ int CurlClient::getMsg(const std::string& sMsg, const int nFormat, std::string& 
         nCode = messagePublicMethod(nFormat);
         if(0 != nCode)
         {
-            printf("getMsg call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("getMsg call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -845,7 +845,7 @@ int CurlClient::getMsg(const std::string& sMsg, const int nFormat, std::string& 
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		return nCode;
@@ -853,7 +853,7 @@ int CurlClient::getMsg(const std::string& sMsg, const int nFormat, std::string& 
     }
     catch(...)
     {
-        printf("getMsg api exception(%d)\n", errno);
+        sLog->logError("getMsg api exception(%d)", errno);
         return -1;                            //接口异常
     }
  
@@ -876,13 +876,13 @@ int CurlClient::downloadFile(const std::string& sFileName, const int nFormat)
     {
         if(sFileName.empty())
         {
-            printf("downloadFile filename is empty\n");
+            sLog->logError("downloadFile filename is empty");
             return -1;    //文件名为空
         }
         pFile = fopen((char*)sFileName.c_str(), "w");         //打开文件,返回结果用文件存储
         if (NULL == pFile)
         {
-            printf("downloadFile open file error(%d), %s\n", errno, (char*)sFileName.c_str());
+            sLog->logError("downloadFile open file error(%d), %s", errno, (char*)sFileName.c_str());
             return -1;      //打开文件失败
         }
  
@@ -899,7 +899,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const int nFormat)
 				pFile = NULL;
             }
  
-            printf("downloadFile call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("downloadFile call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -912,7 +912,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const int nFormat)
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		//关闭文件
@@ -928,7 +928,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const int nFormat)
             fclose(pFile);
 			pFile = NULL;
         }
-        printf("downloadFile api exception(%d)\n", errno);
+        sLog->logError("downloadFile api exception(%d)", errno);
         return -1;         //接口异常
     }
  
@@ -951,13 +951,13 @@ int CurlClient::downloadFile(const std::string& sFileName, const std::string& sL
     {
         if(sFileName.empty())
         {
-            printf("downloadFile filename is empty\n");
+            sLog->logError("downloadFile filename is empty");
             return -1;    //文件名为空
         }
         pFile = fopen((char*)sLocalFile.c_str(), "w");         //打开文件,返回结果用文件存储
         if (NULL == pFile)
         {
-            printf("downloadFile open file error(%d), %s\n", errno, (char*)sLocalFile.c_str());
+            sLog->logError("downloadFile open file error(%d), %s", errno, (char*)sLocalFile.c_str());
             return -1;      //打开文件失败
         }
  
@@ -974,7 +974,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const std::string& sL
 				pFile = NULL;
             }
  
-            printf("downloadFile call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("downloadFile call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -987,7 +987,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const std::string& sL
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		//关闭文件
@@ -1003,7 +1003,7 @@ int CurlClient::downloadFile(const std::string& sFileName, const std::string& sL
             fclose(pFile);
 			pFile = NULL;
         }
-        printf("downloadFile api exception(%d)\n", errno);
+        sLog->logError("downloadFile api exception(%d)", errno);
         return -1;         //接口异常
     }
  
@@ -1027,13 +1027,13 @@ int CurlClient::uploadFileContent(const std::string& sFileName, const int nForma
     {
         if(sFileName.empty())
         {
-            printf("uploadFileContent filename is empty\n");
+            sLog->logError("uploadFileContent filename is empty");
             return -1;    //文件名为空
         }
  
         if(stat((char*)sFileName.c_str(), &file_info))    //文件大小
         {
-            printf("uploadFileContent get file info error(%d), %s\n", errno, (char*)sFileName.c_str());
+            sLog->logError("uploadFileContent get file info error(%d), %s", errno, (char*)sFileName.c_str());
             return -1;
         }
         fsize = (curl_off_t)file_info.st_size;
@@ -1041,7 +1041,7 @@ int CurlClient::uploadFileContent(const std::string& sFileName, const int nForma
         pFile = fopen((char*)sFileName.c_str(), "rb");         //打开文件,返回结果用文件存储
         if (NULL == pFile)
         {
-            printf("uploadFileContent open file error(%d), %s\n", errno, (char*)sFileName.c_str());
+            sLog->logError("uploadFileContent open file error(%d), %s", errno, (char*)sFileName.c_str());
             return -1;      //打开文件失败
         }
  
@@ -1058,7 +1058,7 @@ int CurlClient::uploadFileContent(const std::string& sFileName, const int nForma
 				pFile = NULL;
             }
  
-            printf("uploadFileContent call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("uploadFileContent call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -1076,7 +1076,7 @@ int CurlClient::uploadFileContent(const std::string& sFileName, const int nForma
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
 		//关闭文件
@@ -1093,7 +1093,7 @@ int CurlClient::uploadFileContent(const std::string& sFileName, const int nForma
             fclose(pFile);
 			pFile = NULL;
         }
-        printf("uploadFileContent api exception(%d)\n", errno);
+        sLog->logError("uploadFileContent api exception(%d)", errno);
         return -1;         //接口异常
     }
  
@@ -1151,7 +1151,7 @@ int CurlClient::uploadFile(const std::string& sFileFullname, std::string& sRec)
     {
         if(sFileFullname.empty())
         {
-            printf("uploadFile sFileFullname is empty\n");
+            sLog->logError("uploadFile sFileFullname is empty");
             return -1;    //文件名为空
         }
  
@@ -1159,16 +1159,16 @@ int CurlClient::uploadFile(const std::string& sFileFullname, std::string& sRec)
         const char* pFileName = getFileName(sFileFullname.c_str());
         if(NULL == pFileName || '\0' == pFileName[0])
         {
-            printf("uploadFileContent call getFileName failure, sFileFullname=%s \n", sFileFullname.c_str());
+            sLog->logError("uploadFileContent call getFileName failure, sFileFullname=%s", sFileFullname.c_str());
             return -1;
         }
-        printf("uploadFile pFileName=%s \n", pFileName);
+        sLog->logInfo("uploadFile pFileName=%s", pFileName);
  
         //CURL公共操作方式
         nCode = messagePublicMethod(FORMAT_DEFAULT);
         if(0 != nCode)
         {
-            printf("uploadFile call messagePublicMethod error(%d) \n", errno);
+            sLog->logError("uploadFile call messagePublicMethod error(%d)", errno);
             return -1;
         }
  
@@ -1228,7 +1228,7 @@ int CurlClient::uploadFile(const std::string& sFileFullname, std::string& sRec)
 		nCode = dealResCode(res);
 		if(0 > nCode)
 		{
-			printf("deal response code error \n");
+			sLog->logError("deal response code error");
 		}
 		
         return nCode;
@@ -1248,8 +1248,167 @@ int CurlClient::uploadFile(const std::string& sFileFullname, std::string& sRec)
             headerlist = NULL;
         }
  
-        printf("uploadFile api exception(%d)\n", errno);
+        sLog->logError("uploadFile api exception(%d)", errno);
         return -1;         //接口异常
     }
  
+}
+
+int http_post_json(const char *url, const Json::Value json_value){
+    CURL *curl = NULL;
+    CURLcode res;
+
+    Json::StreamWriterBuilder wbuilder;
+    wbuilder["indentation"] = "";
+    std::string post_str = Json::writeString(wbuilder, json_value);
+    // std::string post_str = json_value.toStyledString();
+
+    struct curl_httppost *post=NULL;
+    struct curl_httppost *last=NULL;
+    struct curl_slist *headers=NULL;
+    headers = curl_slist_append(headers, "Content-Type:application/json;charset=UTF-8");
+
+    if(json_value == NULL || url == NULL){
+        sLog->logError("POST req no url or filename");
+        return -1;
+    }
+
+    sLog->logInfo("URL: %s", url);
+    sLog->logInfo("post_str: %s", post_str.data());
+    
+    /* Add simple file section */
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        sLog->logError("curl_easy_init() error.");
+    }
+
+    curl_easy_setopt(curl, CURLOPT_POST, 1);//设置为非0表示本次操作为POST
+    curl_easy_setopt(curl, CURLOPT_HEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_str.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, post_str.size());
+    int timeout = 5;
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
+
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+    {
+        sLog->logError("curl_easy_perform[%d] error.", res);
+    }
+    curl_easy_cleanup(curl);
+    curl_formfree(post);
+    curl_slist_free_all(headers);
+    //curl_global_cleanup();
+    return 0;
+}
+
+int http_get_json(const char *url){
+    CURL *curl = NULL;
+    CURLcode res;
+
+    if(url == NULL){
+        sLog->logError("GET req no url");
+        return -1;
+    }
+
+    sLog->logInfo("GET json URL: %s", url);
+    
+    /* Add simple file section */
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        sLog->logError("curl_easy_init() error.");
+        return -2;
+    }
+    std::stringstream out;
+
+    curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
+    int timeout = 5;
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
+
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+    {
+        sLog->logError("curl_easy_perform[%d] error.", res);
+    }
+    curl_easy_cleanup(curl);
+    //curl_global_cleanup();
+    return 0;
+}
+
+int http_post_file(const char *url, const char *filename){
+    CURL *curl = NULL;
+    CURLcode res;
+
+    struct curl_httppost *post=NULL;
+    struct curl_httppost *last=NULL;
+    curl_slist *headers=NULL;
+    bool out = false;
+    if(filename == NULL || url == NULL){
+        sLog->logError("POST file no url or filename");
+        return -1;
+    }
+
+    sLog->logInfo("POST file URL: %s", url);
+    sLog->logInfo("POST file filename: %s", filename);
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    /* Add simple file section */
+    if( curl_formadd(&post, &last, CURLFORM_COPYNAME, "result",
+               CURLFORM_FILECONTENT, filename, 
+               CURLFORM_CONTENTHEADER, headers,
+               CURLFORM_END) != 0)
+    {
+        sLog->logError("curl_formadd error.");
+        out = true;
+    }
+    if(out == false){
+    //curl_global_init(CURL_GLOBAL_ALL);
+        curl = curl_easy_init();
+        if(curl == NULL)
+        {
+            sLog->logError("curl_easy_init() error.");
+            out = true;
+        }
+    }
+
+    if(out == false){
+        // curl_easy_setopt(curl, CURLOPT_HEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_URL, url); /*Set URL*/
+        curl_easy_setopt(curl, CURLOPT_HTTPPOST, post);
+        int timeout = 5;
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+        // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+        // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 1);
+
+        res = curl_easy_perform(curl);
+        if(res != CURLE_OK)
+        {
+            sLog->logError("curl_easy_perform[%d] error.", res);
+            out = true;
+        }
+    }
+
+    if(out == false){
+        curl_easy_cleanup(curl);
+    }
+    curl_formfree(post);
+    curl_slist_free_all(headers);
+    //curl_global_cleanup();
+    return 0;
+}
+
+//回调函数
+size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream){
+    std::string data((const char*) ptr, (size_t) size * nmemb);
+
+    *((std::stringstream*) stream) << data << std::endl;
+
+    return size * nmemb;
 }

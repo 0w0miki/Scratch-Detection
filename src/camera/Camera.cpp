@@ -965,10 +965,22 @@ int Camera::applyParam(){
     return 0;
 }
 
+//-------------------------------------------------
+/**
+\brief 读取当前计数
+\return int64_t   
+*/
+//-------------------------------------------------
 int64_t Camera::getCount(){
     return count_;
 }
 
+//-------------------------------------------------
+/**
+\brief 检测模块执行出队列，更新相机处理下标
+\return int 0成功 -1失败
+*/
+//-------------------------------------------------
 int Camera::popList(){
     if(fake_ptr_ > 0){
         fake_ptr_ -= 1;
@@ -979,6 +991,12 @@ int Camera::popList(){
     }
 }
 
+//-------------------------------------------------
+/**
+\brief 
+\return int 0成功 -1失败
+*/
+//-------------------------------------------------
 bool Camera::isSoftTrigger(){
     int64_t source;
     GX_STATUS status = GXGetEnum(g_device_, GX_ENUM_TRIGGER_SOURCE, &source);

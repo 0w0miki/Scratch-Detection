@@ -225,6 +225,10 @@ void System::run(){
 	return;
 }
 
+/**
+ * @brief 更新当前作业信息以发送给网页前端
+ * 
+ */
 void System::updateState(){
 	if(work_name_list_.empty()){
 		cur_id_ = 0;
@@ -233,6 +237,7 @@ void System::updateState(){
 		totla_page_ = 0;
 		return;
 	}
+
 	static int last_length = 0;
 	int send_flag = 0;
 	pthread_mutex_lock(&work_list_mutex_);
@@ -245,7 +250,7 @@ void System::updateState(){
 	SplitString(cur_name, splitres, "_");
 	cur_id_ = std::stoll(splitres[1]);
 	if(splitres[0] == "reprint"){
-		// 重打 id和编号直接由名字给出
+		// NOTE "重打 id和编号直接由名字给出"
 		cur_page_ = std::stoll(splitres[2]);
 	}else{
 		cur_page_ = det_num;
@@ -280,6 +285,7 @@ void System::updateState(){
 	}
 	pthread_mutex_unlock(&work_list_mutex_);
 
+	// 发送信息给网页
 	switch (send_flag)
 	{
 		case 1:
@@ -294,18 +300,34 @@ void System::updateState(){
 	}
 }
 
+/**
+ * @brief 发送当前处理的作业信息给网页
+ * 
+ */
 void System::informCurState(){
 	string msg = "statemsg{\"index\":" + to_string(cur_index_) + ",\"id\":" + to_string(cur_id_) + ",\"page\":" + to_string(cur_page_) + ",\"totalpage\":" + to_string(totla_page_) + "}";
 	sLog->logDebug("Websocket send %s", msg.c_str());
 	server_->SendWebsocketMsg(msg);
 }
 
+/**
+ * @brief 发送目前持有的作业列表给网页
+ * 
+ */
 void System::informWorkList(){
 	string list = "listmsg{\"index\":" + to_string(cur_index_) + ",\"list\":" + getJsonWorkList() + ",\"origin\":" + getJsonOriginList() + "}";
 	sLog->logDebug("Websocket send %s", list.c_str());
 	server_->SendWebsocketMsg(list);
 }
 
+/**
+ * @brief 网页端设置当前作业
+ * 
+ * @param index 	网页的列表序号
+ * @param jobid 	作业id
+ * @param curpage 	当前是第几页
+ * @return int 		0成功 -1失败
+ */
 int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 	if(index == cur_index_ && jobid == cur_id_ && curpage == cur_page_){
 
@@ -482,6 +504,13 @@ int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 }
 
 // SECTION util functions
+/**
+ * @brief 获取当前信息
+ * 
+ * @param filename 	文件名
+ * @param id 		id
+ * @return int 		当前页数 or -1出错
+ */
 int System::getCurInfo(std::string filename, int64_t &id){
 	int page = 0;
 	std::vector<std::string> split_name;
@@ -501,6 +530,11 @@ int System::getCurInfo(std::string filename, int64_t &id){
 	return page;
 }
 
+/**
+ * @brief worklist->json
+ * 
+ * @return std::string  Json格式字符串
+ */
 std::string System::getJsonWorkList(){
 	Json::Value res;
 	if(work_list_.empty()){
@@ -522,6 +556,11 @@ std::string System::getJsonWorkList(){
 	return s;
 }
 
+/**
+ * @brief originlist->json
+ * 
+ * @return std::string  Json格式字符串
+ */
 std::string System::getJsonOriginList(){
 	Json::Value res;
 	if(origin_list_.empty()){
@@ -542,6 +581,11 @@ std::string System::getJsonOriginList(){
 	return s;
 }
 
+/**
+ * @brief 读取settings.json里的参数
+ * 
+ * @return int 0成功 -1出错
+ */
 int System::readNetParam(){
 	std::ifstream paramfile;
 	paramfile.open("../settings.json", std::ios::binary);
@@ -573,6 +617,12 @@ int System::readNetParam(){
 // !SECTION 
 
 // SECTION Client functions
+/**
+ * @brief 下载列表中的文件
+ * 
+ * @param file_list 	需要下载的文件url列表
+ * @return int 			-1失败 curl代码
+ */
 int System::downloadFileList(std::vector<string> file_list){
 	int nCode = -1;
 	std::string sIP = client_host_;
@@ -636,6 +686,12 @@ int System::downloadFileList(std::vector<string> file_list){
 // !SECTION 
 
 // SECTION HTTP Server functions
+/**
+ * @brief 处理读取信号，从文件中读出作业信息
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_signal(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback)
 {
 	// do sth
@@ -647,6 +703,12 @@ bool System::handle_signal(std::string url, std::string body, mg_connection *c, 
 	return true;
 }
 
+/**
+ * @brief 响应发送结果
+ *  
+ * @return true 
+ * @return false 
+ */
 bool System::handle_result(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	sLog->logInfo("handle result");
 
@@ -655,6 +717,12 @@ bool System::handle_result(std::string url, std::string body, mg_connection *c, 
 	return true;
 }
 
+/**
+ * @brief 处理设置任务请求
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_setTask(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	sLog->logInfo("handle refresh");
 	sLog->logDebug("body: %s", body.c_str());
@@ -678,6 +746,12 @@ bool System::handle_setTask(std::string url, std::string body, mg_connection *c,
 	return true;
 }
 
+/**
+ * @brief 处理远端发送过来的作业信息
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_start(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	sLog->logInfo("handle start");
 	sLog->logDebug("body: %s", body.c_str());
@@ -847,6 +921,12 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 	return true;
 }
 
+/**
+ * @brief 处理切换模式请求
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_changeMod(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	sLog->logInfo("handle change mode");
 	sLog->logDebug("body: %s", body.c_str());
@@ -868,12 +948,24 @@ bool System::handle_changeMod(std::string url, std::string body, mg_connection *
 	return true;
 }
 
+/**
+ * @brief 处理软触发请求
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_softTrigger(std::string url, std::string body, mg_connection *c, OnRspCallback rsp_callback){
 	int ret = camera->sendSoftTrigger();
 	sLog->logDebug("The return value of softtrigger command: %d", ret);
 	return true;
 }
 
+/**
+ * @brief 处理websocket连接请求
+ * 
+ * @return true 
+ * @return false 
+ */
 bool System::handle_websocketConnect(){
 	informWorkList();
 	informCurState();
@@ -886,12 +978,11 @@ bool System::handle_websocketConnect(){
 	return true;
 }
 
-void* System::postResultWrapper(void * arg){
-	System * thisptr= (System *) arg;
-	thisptr->postResult();
-	return nullptr;
-}
 
+/**
+ * @brief 发送结果给远端服务器
+ * 
+ */
 void System::postResult(){
     int nCode = -1;
     std::string sIP = client_host_;
@@ -934,12 +1025,34 @@ void System::postResult(){
     }
 }
 
+/**
+ * @brief 开启本地服务器wrapper
+ * 
+ * @param arg 
+ * @return void* 
+ */
 void* System::startServerWrapper(void *arg){
 	System* this_ptr= (System *) arg;
 	this_ptr->startServer();
 	return nullptr;
 }
 
+/**
+ * @brief 发送结果给远端服务器wrapper
+ * 
+ * @param arg 
+ * @return void* 
+ */
+void* System::postResultWrapper(void * arg){
+	System * thisptr= (System *) arg;
+	thisptr->postResult();
+	return nullptr;
+}
+
+/**
+ * @brief 本地服务器启动
+ * 
+ */
 void System::startServer(){
 	server_->Start();
 }

@@ -16,7 +16,16 @@ int check_file(char *filename){
     return file_len;
 }
 
-
+/**
+ * @brief 从batch_info.json中读取作业信息
+ * 
+ * @param filename          文件名batch_info.json
+ * @param work_name_list    作业列表
+ * @param work_count_list   作业数
+ * @param batch_origin_list 原图列表
+ * @param batch_count_list  原图数
+ * @return int 
+ */
 int readBatchFile(std::string filename, 
     std::deque<std::string> &work_name_list, 
     std::deque<int> &work_count_list, 

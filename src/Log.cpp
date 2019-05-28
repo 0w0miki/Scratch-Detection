@@ -59,11 +59,22 @@ Logger::~Logger(){
     }
 }
 
+/**
+ * @brief 单例模式获取实例
+ * 
+ * @return Logger* 
+ */
 Logger* Logger::getLogInstance(){
     static Logger instance;
     return &instance;
 }
 
+/**
+ * @brief Error级别日志 参考printf格式
+ * 
+ * @param fmt 格式
+ * @param ... 其他参数
+ */
 void Logger::logError(const char* fmt, ...){
     va_list args;
     va_start(args, fmt);
@@ -78,6 +89,12 @@ void Logger::logError(const char* fmt, ...){
     }
 }
 
+/**
+ * @brief Warn级别日志 参考printf格式
+ * 
+ * @param fmt 格式
+ * @param ... 其他参数
+ */
 void Logger::logWarn(const char* fmt, ...){
     va_list args;
     va_start(args, fmt);
@@ -92,6 +109,12 @@ void Logger::logWarn(const char* fmt, ...){
     }
 }
 
+/**
+ * @brief Debug级别日志 参考printf格式
+ * 
+ * @param fmt 格式
+ * @param ... 其他参数
+ */
 void Logger::logDebug(const char* fmt, ...){
     va_list args;
     va_start(args, fmt);
@@ -106,6 +129,12 @@ void Logger::logDebug(const char* fmt, ...){
     }
 }
 
+/**
+ * @brief Info级别日志 参考printf格式
+ * 
+ * @param fmt 格式
+ * @param ... 其他参数
+ */
 void Logger::logInfo(const char* fmt, ...){
     va_list args;
     va_start(args, fmt);
@@ -113,7 +142,6 @@ void Logger::logInfo(const char* fmt, ...){
 	int ret = vsnprintf(buff, 1023 , fmt , args);
 	va_end(args);
 
-    
     if(log_level_ <= INFO){
         printf("[INFO]%s\n",buff);
         string str = buff;
@@ -122,7 +150,7 @@ void Logger::logInfo(const char* fmt, ...){
 }
 
 /**
- * @brief 记录日志主体
+ * @brief 记录日志主体 [日期 时间]记录内容
  * 
  * @param str 
  * @param type 记录类型
@@ -182,6 +210,10 @@ void* Logger::logThreadWrapper(void* args){
     Logger::getLogInstance()->run();
 }
 
+/**
+ * @brief 线程执行程序 实际写入文件的地方
+ * 
+ */
 void Logger::run(){
     while(run_flag_){
         // wait for 0.01ms
@@ -204,6 +236,10 @@ void Logger::run(){
     
 }
 
+/**
+ * @brief 开启新文件
+ * 
+ */
 void Logger::openNewFile(){
     char log_path[1024] = {};
     sprintf(log_path, "%s/%s%d%02d%02d_%d.log", log_dir_.c_str(), log_name_.c_str(), year_, mon_, day_, log_id_);
@@ -225,6 +261,9 @@ bool Logger::checkFile(){
     {
         fclose(logfile_);
         log_id_ = 1;
+        day_ = cday_;
+        mon_ = cmon_;
+        year_ = cyear_;
         openNewFile();
     }
     else if( ftell(logfile_) >= MEM_LIMIT )

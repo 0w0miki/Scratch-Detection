@@ -29,7 +29,7 @@ Detector::Detector():
     if(!result_log_){
         sLog->logWarn("Failed to open log file");
     }
-    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch staten";
 
     input_type_ = DETECTA4;
 }
@@ -63,7 +63,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     if(!result_log_){
         sLog->logWarn("Failed to open log file");
     }
-    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch staten";
     
     mutex_ = mutex;
     unsolved_list_ = list;
@@ -105,7 +105,7 @@ Detector::Detector(
     if(!result_log_){
         sLog->logWarn("Failed to open log file");
     }
-    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch staten";
     
     mutex_ = mutex;
     unsolved_list_ = list;
@@ -158,7 +158,7 @@ Detector::Detector(
     if(!result_log_){
         sLog->logWarn("Failed to open log file");
     }
-    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch state\n";
+    result_log_<<"id,value,state,big pro score,big pro state,scratch score,scratch staten";
     
     mutex_ = mutex;
     result_mutex_ = result_mutex;
@@ -184,15 +184,13 @@ Detector::~Detector()
     result_log_.close();
 }
 
-//-------------------------------------------------
 /**
-\brief 提取带白边的标签图片
-\param [in] image_gray 拍摄图像
-\param [out] match_templ 待测图
-\param [out] points 四个角点
-\return void
+brief 提取带白边的标签图片
+param [in] image_gray 拍摄图像
+param [out] match_templ 待测图
+param [out] points 四个角点
+return void
 */ 
-//-------------------------------------------------
 int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
     cv::Mat image_bin;
     cv::Mat image_bin2;
@@ -353,15 +351,13 @@ int Detector::findPaper(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     return STATE_OK;
 }
 
-//-------------------------------------------------
 /**
-\brief 提取带白边的标签图片
-\param [in] image_gray 拍摄图像
-\param [out] match_templ 待测图
-\param [out] points 四个角点
-\return void
+brief 提取带白边的标签图片
+param [in] image_gray 拍摄图像
+param [out] match_templ 待测图
+param [out] points 四个角点
+return void
 */ 
-//-------------------------------------------------
 int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Point2f> & points) {
     cv::Mat image_bin;
     cv::Mat image_bin2;
@@ -463,14 +459,12 @@ int Detector::findLabel(cv::Mat image_gray, cv::Mat &det_img, std::vector<cv::Po
     // waitKey();
 }
 
-//-------------------------------------------------
 /**
-\brief 通过黑点找到图像
-\param [in] image 待测图
-\param [out] dst 输出图
-\return void
+brief 通过黑点找到图像
+param [in] image 待测图
+param [out] dst 输出图
+return void
 */ 
-//-------------------------------------------------
 void Detector::getROI(cv::Mat image, cv::Mat &dst){
     Mat square_bin, paper_bin, paper_black;
     Mat mask = Mat::zeros(image.rows,image.cols,CV_8U);
@@ -620,15 +614,13 @@ void Detector::getROI(cv::Mat image, cv::Mat &dst){
     // cout<<locate_square.size()<<endl;
 }
 
-//-------------------------------------------------
 /**
-\brief 获取标签的图像
-\param [in] image 待测图
-\param [in] width 图像宽
-\param [in] height 图像高
-\return Mat 标签图像
+brief 获取标签的图像
+param [in] image 待测图
+param [in] width 图像宽
+param [in] height 图像高
+return Mat 标签图像
 */ 
-//-------------------------------------------------
 cv::Mat Detector::getLabelImg(Mat img){
     float size_thresh_k = 0.6;
     Mat image_bin, dst;
@@ -684,13 +676,11 @@ cv::Mat Detector::getLabelImg(Mat img){
     return dst;
 }
 
-//-------------------------------------------------
 /**
-\brief LOG卷积
-\param [in] img 待测图
-\return Mat 输出图像
+brief LOG卷积
+param [in] img 待测图
+return Mat 输出图像
 */ 
-//-------------------------------------------------
 Mat Detector::LOG(Mat img) {
     // Mat kern = (Mat_<char>(5,5) << 0, 0, -1, 0, 0,
     //                                0, 0, -2, 0, 0,
@@ -707,15 +697,13 @@ Mat Detector::LOG(Mat img) {
     return dst;
 }
 
-//-------------------------------------------------
 /**
-\brief 保留图像高对比度区域
-\param [in] img 图像
-\param [out] dst 输出图像
-\param [in] r 参数
-\return void
+brief 保留图像高对比度区域
+param [in] img 图像
+param [out] dst 输出图像
+param [in] r 参数
+return void
 */ 
-//-------------------------------------------------
 void Detector::highConstract(Mat img, Mat & dst, int r, int type) {
     Mat dil,ero,temp,diff1,diff;
     // Dilation(img, dil,0,2);
@@ -735,14 +723,12 @@ void Detector::highConstract(Mat img, Mat & dst, int r, int type) {
     /********white********/ 
 }
 
-//-------------------------------------------------
 /**
-\brief 搜索和原图中相同的区域
-\param [in] img 待测图
-\param [in] template_img 模板图
-\return Mat 标签图像
+brief 搜索和原图中相同的区域
+param [in] img 待测图
+param [in] template_img 模板图
+return Mat 标签图像
 */ 
-//-------------------------------------------------
 cv::Mat Detector::search(Mat img, Mat template_img){
     Mat comm;
     bitwise_and(img,template_img,comm);
@@ -750,15 +736,13 @@ cv::Mat Detector::search(Mat img, Mat template_img){
     return comm;
 }
 
-//-------------------------------------------------
 /**
-\brief 模切偏移检测
-\param [in] template_img 模板图像
-\param [in] det_img 待测图像
-\param [in] adjust_match 结果图像
-\return int 0:ok 1:fault
+brief 模切偏移检测
+param [in] template_img 模板图像
+param [in] det_img 待测图像
+param [in] adjust_match 结果图像
+return int 0:ok 1:fault
 */ 
-//-------------------------------------------------
 int Detector::checkPos() {
     // 偏差
     const int N = 3;
@@ -819,13 +803,11 @@ int Detector::checkPos() {
     // return diff_sum[0]/255;
 }
 
-//-------------------------------------------------
 /**
-\brief 尺寸检测
-\param 
-\return int 0 ok 1 fault
+brief 尺寸检测
+param 
+return int 0 ok 1 fault
 */ 
-//-------------------------------------------------
 int Detector::checkSize() {
     // 1 2
     // 4 3
@@ -836,7 +818,7 @@ int Detector::checkSize() {
     for(i = 0; i < 4; i+=2){
         float xw = img_points_[i+1].x - img_points_[i].x;
         float yw = img_points_[i+1].y - img_points_[i].y;
-        width2 = max(width2,xw * xw + yw * yw);//123212.64286916\120909
+        width2 = max(width2,xw * xw + yw * yw);//123212.64286916120909
     }
     for(i = 0; i < 2; i++){
         float xw = img_points_[3-i].x - img_points_[i].x;
@@ -868,13 +850,11 @@ int Detector::checkSize() {
     //369330,370568
 }
 
-//-------------------------------------------------
 /**
-\brief 划痕检测
-\param 
-\return int 0: ok 1: fault
+brief 划痕检测
+param 
+return int 0: ok 1: fault
 */ 
-//-------------------------------------------------
 int Detector::checkScratch() {
     auto t_scratch_bef = chrono::system_clock::now();
     Mat common,A,B,template_label_bin,diff_white,diff;
@@ -939,14 +919,14 @@ int Detector::checkScratch() {
     if(save_result_switch_){
         result_log_ << diff_sum[0]/255;
         if(diff_sum[0]/255 < scratch_thresh_){
-            result_log_ << '\n';
+            result_log_ << 'n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
                 sLog->logDebug("scratch time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count());
             }
             return 0;
         }else{
-            result_log_ << ",scratch fault" << '\n';
+            result_log_ << ",scratch fault" << 'n';
             if(show_time_switch_){
                 auto t_scratch_end = chrono::system_clock::now();
                 sLog->logDebug("scratch time %ld ms", chrono::duration_cast<chrono::milliseconds>(t_scratch_end-t_scratch_bef).count());
@@ -957,13 +937,11 @@ int Detector::checkScratch() {
     return diff_sum[0]/255 < scratch_thresh_;
 }
 
-//-------------------------------------------------
 /**
-\brief 显著瑕疵检测
-\param 
-\return int 0:ok 1:fault
+brief 显著瑕疵检测
+param 
+return int 0:ok 1:fault
 */ 
-//-------------------------------------------------
 int Detector::checkBigProblem(){
     auto t_bp_bef = chrono::system_clock::now();
     Mat res;
@@ -1018,13 +996,11 @@ int Detector::checkBigProblem(){
     return diff_sum[0]/255 < bigpro_thresh_;
 }
 
-//-------------------------------------------------
 /**
-\brief 设置原图
-\param [in] filename 地址
-\return int 
+brief 设置原图
+param [in] filename 地址
+return int 
 */ 
-//-------------------------------------------------
 int Detector::setOriginImg(string filename){
     string file = template_dir_ + filename;
     template_img_ = cv::imread(file,0);
@@ -1047,13 +1023,11 @@ int Detector::setOriginImg(string filename){
     return 0;
 }
 
-//-------------------------------------------------
 /**
-\brief 设置原图
-\param [in] img 原图
-\return void 
+brief 设置原图
+param [in] img 原图
+return void 
 */ 
-//-------------------------------------------------
 int Detector::setOriginImg(cv::Mat img){
     if(!img.data){
         sLog->logError("No source image!!!");
@@ -1074,13 +1048,11 @@ int Detector::setOriginImg(cv::Mat img){
     return 0;
 }
 
-//-------------------------------------------------
 /**
-\brief 设置待测图像
-\param [in] filename 文件地址
-\return void 
+brief 设置待测图像
+param [in] filename 文件地址
+return void 
 */ 
-//-------------------------------------------------
 int Detector::setImg(string filename){
     // 读入图片
     string file = img_dir_ + filename;
@@ -1134,13 +1106,11 @@ int Detector::setImg(string filename){
     // getROI(img_gray_, label_);
 }
 
-//-------------------------------------------------
 /**
-\brief 设置待测图像
-\param [in] img 拍到的ROI图像
-\return int 
+brief 设置待测图像
+param [in] img 拍到的ROI图像
+return int 
 */ 
-//-------------------------------------------------
 int Detector::setImg(cv::Mat img){
     img_gray_ = Mat::zeros(template_img_.rows, template_img_.cols,CV_8U);
     if(!img_gray_.data){
@@ -1159,14 +1129,12 @@ int Detector::setImg(cv::Mat img){
     // getROI(img_gray_, label_);
 }
 
-//-------------------------------------------------
 /**
-\brief 保存图片
-\param [in] pre 前缀
-\param [in] img 图片
-\return void 
+brief 保存图片
+param [in] pre 前缀
+param [in] img 图片
+return void 
 */ 
-//-------------------------------------------------
 void Detector::saveImg(string pre, cv::Mat img){
     string Output_Path = "../Output/images/";
     string suffix = ".jpg";
@@ -1203,6 +1171,11 @@ int Detector::launchThread(){
     return 0;
 }
 
+/**
+ * @brief 从配置文件读取设置
+ * 
+ * @return int 错误码
+ */
 int Detector::setParam(){
 
     Mat K = Mat::zeros(3,3,CV_32FC1); 
@@ -1268,6 +1241,10 @@ int Detector::setParam(){
     return 0;
 }
 
+/**
+ * @brief 根据模板图像设置阈值
+ * 
+ */
 void Detector::setThresh(){
 
     Mat temp = template_img_ > bin_thresh_;
@@ -1287,6 +1264,11 @@ void Detector::setThresh(){
     // d_height_ = 1300;
 }
 
+/**
+ * @brief 检测函数 进行各项检测
+ * 
+ * @return int 返回检测是否出错 0没出错
+ */
 int Detector::detect(){
     if(work_name_list_->empty()){
         return -10;
@@ -1315,14 +1297,16 @@ int Detector::detect(){
         // 划痕，折痕
         result = result | 4;
     }
+    
+    // 不管正确与否都从485发给PLC
     char buff[10]={0};
     buff[0] = 0x01; buff[1] = 0x06;
-    // 保存json文件
     if(result != 0){
         buff[4] = 0x01;
         buff[6] = 0x88;
         buff[7] = 0x5A;
         serial_->sendMsg(buff,8);
+        // 如果有问题，发送给后端服务器
         writeResJson(result);
     }else{
         buff[4] = 0x00;
@@ -1333,6 +1317,10 @@ int Detector::detect(){
     return 0;
 }
 
+/**
+ * @brief 实际线程函数 进行检测和数量更新
+ * 
+ */
 void Detector::ProcDetect(){
     start_detect_ = true;
     while(start_detect_){
@@ -1434,24 +1422,51 @@ void Detector::ProcDetect(){
     }
 }
 
+/**
+ * @brief pthread线程函数wrapper
+ * 
+ * @param args (void*)(Detector*)
+ * @return void* 
+ */
 void* Detector::detector_pth(void* args){
     Detector *_this = (Detector *)args;
     _this->ProcDetect();
 }
 
+/**
+ * @brief 获取当前作业id处理了的数量
+ * 
+ * @return int id
+ */
 int64_t Detector::getIdCount(){
     return id_count_;
 }
 
+/**
+ * @brief 获取当前原图的计数
+ * 
+ * @return int 计数
+ */
 int Detector::getCount(){
     return count_;
 }
 
+/**
+ * @brief 【废弃】设置期望尺寸
+ * 
+ * @param desired_size 期望尺寸
+ */
 void Detector::setDesiredSize(cv::Point2i desired_size){
     d_width_ = desired_size.x;
     d_height_ = desired_size.y;
 }
 
+/**
+ * @brief 将检测结果写入json
+ * 
+ * @param result 检测结果 二进制编码从低位到高位依次指示各类错误 有错误为1没有为0 
+ *               高位 |划痕|墨迹|模切偏移 低位
+ */
 void Detector::writeResJson(int8_t result){
     sLog->logInfo("<-------------------Write json file------------------------>");
     // Json::Value root;
@@ -1484,7 +1499,11 @@ void Detector::writeResJson(int8_t result){
     sLog->logDebug("result json: %s", result_root_->toStyledString().c_str());
     pthread_mutex_unlock(result_mutex_);
 }
-
+/**
+ * @brief 停止线程
+ * 
+ * @return int 
+ */
 int Detector::stopThread(){
     start_detect_ = false;
     pthread_cancel(this->detection_thread_);

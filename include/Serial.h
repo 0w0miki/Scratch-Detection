@@ -24,11 +24,17 @@ private:
 public:
     Serial(/* args */) { }
     ~Serial() { }
+    // 设置波特率
     int setBaudRate(const int baud_rate);
+    // 设置奇偶校验位
     int setParity(const int databits, const int stopbits, const int parity);
+    // 初始化
     int init(const char* port);
+    // 发送消息
     int sendMsg(char* msg, int size);
+    // 读取消息
     int readMsg(std::string &msg);
+    // 停
     int stop();
 };
 

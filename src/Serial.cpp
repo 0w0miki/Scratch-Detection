@@ -103,6 +103,12 @@ int Serial::setParity(const int databits, const int stopbits, const int parity){
     return 0;
 }
 
+/**
+ * @brief 串口初始化
+ * 
+ * @param port  端口
+ * @return int  0成功 -1不成功
+ */
 int Serial::init(const char* port){
     fd_ = open( port, O_RDWR); /*以读写方式打开串口*/ 
     if (-1 == fd_){ 
@@ -113,6 +119,13 @@ int Serial::init(const char* port){
     return 0;
 }
 
+/**
+ * @brief  串口发送信息
+ * 
+ * @param msg   需要发送的信息
+ * @param size  信息的长度
+ * @return int  发送的字节数
+ */
 int Serial::sendMsg(char* msg, int size){
     printf("send serial %d\n", size);
     for(int i=0;i<size;++i)
@@ -122,6 +135,12 @@ int Serial::sendMsg(char* msg, int size){
     return nByte;
 }
 
+/**
+ * @brief 读取串口消息
+ * 
+ * @param msg   存储到的字符串
+ * @return int  读取的字节数
+ */
 int Serial::readMsg(std::string &msg){
     char buff[1024];
     int readByte = read(fd_,buff,1024);

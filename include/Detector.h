@@ -38,35 +38,35 @@ enum DETECTOR_STATE{
 
 private:
     // 图
-    cv::Mat template_img_;
-    cv::Mat template_label_;
-    cv::Mat template_img_resize_;
-    cv::Mat img_gray_;
-    cv::Mat img_resize_;
-    cv::Mat label_;
-    std::vector<Point2f> img_points_;
+    cv::Mat template_img_;                  // 模板图像
+    cv::Mat template_label_;                // 模板图像中的标签
+    cv::Mat template_img_resize_;           // 【废弃】更改尺寸的模板图像
+    cv::Mat img_gray_;                      // 拍摄图像
+    cv::Mat img_resize_;                    // 【废弃】更改尺寸的拍摄图像
+    cv::Mat label_;                         // 图像中的标签
+    std::vector<Point2f> img_points_;       // 【废弃】图像边角点
     
     // 线程
-    pthread_mutex_t* mutex_;
-    pthread_mutex_t* result_mutex_;
-    pthread_t detection_thread_; 
-    std::queue<string>* unsolved_list_;
+    pthread_mutex_t* mutex_;                // 待处理队列 锁
+    pthread_mutex_t* result_mutex_;         // 结果的json 锁
+    pthread_t detection_thread_;            // pthread线程id
+    std::queue<string>* unsolved_list_;     // 待处理队列
 
     // 参数
-    float k_pos_;
-    float k_scratch_;
-    float k_bigpro_;
-    string template_dir_;
-    string img_dir_;
-    int ROI_y_;
-    int ROI_height_;
-    int left_cut_px_;
-    int right_cut_px_;
-    int scratch_pixel_num_;
+    float k_pos_;                           // 计算位置问题阈值的比例因子
+    float k_scratch_;                       // 计算瑕疵问题阈值的比例因子
+    float k_bigpro_;                        // 计算划痕问题阈值的比例因子
+    string template_dir_;                   // 模板图片路径
+    string img_dir_;                        // 拍摄图片路径
+    int ROI_y_;                             // A4纸图像y轴上边沿坐标
+    int ROI_height_;                        // A4纸区域图像高
+    int left_cut_px_;                       // 左侧切除像素
+    int right_cut_px_;                      // 右侧切除像素
+    int scratch_pixel_num_;                 // 移动的像素范围
 
     // 计数器
-    int count_;
-    int64_t id_count_;
+    int count_;                             // 原图
+    int64_t id_count_;                      // work id
 
     // 类型 0-检测A4 1-检测单张
     int8_t input_type_;
@@ -92,16 +92,16 @@ private:
     bool log_switch_;
     bool start_detect_;
 
-    // 原图是否已设置标志位
+    // 原图是否已设置的标志位
     bool origin_flag;
 
     // 批次信息
-    std::deque<std::string>* work_name_list_;
-    std::deque<int>* work_count_list_;
-    std::deque<string>* batch_origin_list_;
-    std::deque<int>* batch_count_list_;
-    std::vector<cv::Point2i>* desired_size_list_;
-    std::vector<cv::Point2i>::iterator desired_size_iter_;
+    std::deque<std::string>* work_name_list_;               // 作业的文件名前缀
+    std::deque<int>* work_count_list_;                      // 作业的数量
+    std::deque<string>* batch_origin_list_;                 // 原图文件名
+    std::deque<int>* batch_count_list_;                     // 一张原图对应的照片数量
+    std::vector<cv::Point2i>* desired_size_list_;           // 【废弃】
+    std::vector<cv::Point2i>::iterator desired_size_iter_;  // 【废弃】这里不能用vector迭代器 会有失效的问题
 
     // 返回信息
     Json::Value* result_root_;
@@ -112,7 +112,7 @@ private:
     // 串口指针
     Serial* serial_;
 
-    // remap
+    // remap消畸变
     cv::Mat remap_x_, remap_y_;
 
     // 

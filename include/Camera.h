@@ -40,10 +40,10 @@
 class Camera
 {
 enum CAMERA_STATE{
-    CAMERA_STOP,
-    CAMERA_RUN,
-    CAMERA_READY_TO_PAUSE,
-    CAMERA_PAUSE
+    CAMERA_STOP,                                                // 停止
+    CAMERA_RUN,                                                 // 运行中
+    CAMERA_READY_TO_PAUSE,                                      // 准备暂停
+    CAMERA_PAUSE                                                // 暂停中
 };
 
 private:
@@ -71,21 +71,21 @@ private:
     std::vector<std::vector<ROI>>::iterator batch_ROI_iter_;    ///< ROI列表迭代器
 
     // param
-    double shutter_time_;
-    double red_balance_;
-    double green_balance_;
-    double blue_balance_;
-    double gain_value_;
+    double shutter_time_;                                       ///< 曝光时间
+    double red_balance_;                                        ///< 白平衡 红
+    double green_balance_;                                      ///< 白平衡 绿
+    double blue_balance_;                                       ///< 白平衡 蓝
+    double gain_value_;                                         ///< 增益(调节亮度变化)
 
-    int triger_line_;
-    int triger_edge_;
+    int triger_line_;                                           ///< 触发线
+    int triger_edge_;                                           ///< 上升沿/下降沿
 
-    std::string file_dir_;
-    int64_t count_;
+    std::string file_dir_;                                      ///< 保存图片路径
+    int64_t count_;                                             ///< 当前拍摄了的计数
 
-    int fake_ptr_;
+    int fake_ptr_;                                              ///< 指示当前处理的是工作队列的哪个
 
-    CAMERA_STATE state_ = CAMERA_STOP;
+    CAMERA_STATE state_ = CAMERA_STOP;                          ///< 运行状态
 
 protected:
 
@@ -154,11 +154,15 @@ public:
     int popList();
     // 重置fake_ptr
     inline void resetBias(){fake_ptr_ = 0;}
-
+    // 设置计数器
     void setCount(int64_t count){count_ = count;}
+    // 是否成功暂停
     inline bool isPause(){return CAMERA_PAUSE == state_;}
+    // 暂停
     void callPause(){state_ = CAMERA_READY_TO_PAUSE;}
+    // 继续
     void restart(){state_ = CAMERA_RUN;}
+    // 返回是否是软触发 通知网页用
     bool isSoftTrigger();
 };
 

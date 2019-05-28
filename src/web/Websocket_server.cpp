@@ -9,10 +9,23 @@ WebsocketServer::~WebsocketServer()
     
 }
 
+/**
+ * @brief 判断是否是websocket连接
+ * 
+ * @param nc    链接指针
+ * @return int  1是 0不是
+ */
 static int isWebsocket(const struct mg_connection *nc) {
     return nc->flags & MG_F_IS_WEBSOCKET;
 }
 
+/**
+ * @brief 检测请求
+ * 
+ * @param http_msg		http消息 
+ * @param route_prefix  前缀
+ * @return int          请求枚举
+ */
 static int route_check(http_message *http_msg, const char *route_prefix)
 {
 	if (mg_vcmp(&http_msg->uri, route_prefix) == 0)
@@ -30,12 +43,23 @@ static int route_check(http_message *http_msg, const char *route_prefix)
 		return WebsocketServer::REQ_ERR;
 }
 
+/**
+ * @brief 初始化
+ * 
+ * @param port 端口号
+ */
 void WebsocketServer::Init(const std::string &port){
     m_port = port;
     s_websocket_option.enable_directory_listing = "yes";
     s_websocket_option.document_root = s_websocket_dir.c_str();
 }
 
+/**
+ * @brief 启动服务器
+ * 
+ * @return true   成功
+ * @return false  失败
+ */
 bool WebsocketServer::Start(){
     mg_mgr_init(&m_mgr, NULL);
 	mg_connection *connection = mg_bind(&m_mgr, m_port.c_str(), OnEvent);
@@ -51,6 +75,12 @@ bool WebsocketServer::Start(){
 	return true;
 }
 
+/**
+ * @brief 添加http请求的处理函数
+ * 
+ * @param url           需要处理的url
+ * @param req_handler   处理函数
+ */
 void WebsocketServer::AddHttpHandler(const std::string &url, ReqHandler req_handler){
     if(s_http_handler_map.find(url) != s_http_handler_map.end())
         return;
@@ -58,36 +88,57 @@ void WebsocketServer::AddHttpHandler(const std::string &url, ReqHandler req_hand
     s_http_handler_map.insert(std::make_pair(url,req_handler));
 }
 
+/**
+ * @brief 添加websocket处理函数
+ * 
+ * @param fun           处理函数
+ */
 void WebsocketServer::setWebsocketConnectHandler(std::function<bool ()> fun){
 	s_ws_connect_handler = fun;
 }
 
+/**
+ * @brief 移除http请求的处理函数
+ * 
+ * @param url           需要移除的url
+ */
 void WebsocketServer::RemoveHttpHandler(const std::string &url){
     auto iter = s_http_handler_map.find(url);
     if(iter != s_http_handler_map.end())
         s_http_handler_map.erase(iter);
 }
 
+/**
+ * @brief 事件处理
+ * 
+ * @param connection    链接指针
+ * @param event_type    事件类型
+ * @param event_data    事件数据内容
+ */
 void WebsocketServer::OnEvent(mg_connection *connection, int event_type, void *event_data){
     switch (event_type)
     {
-        case MG_EV_WEBSOCKET_HANDSHAKE_DONE:{
+        // 完成websocket链接
+		case MG_EV_WEBSOCKET_HANDSHAKE_DONE:{
             sLog->logInfo("New websocket connection:%p\n", connection);
             std::string msg("Hello Websocket Client");
             mg_send_websocket_frame(connection, WEBSOCKET_OP_TEXT, msg.c_str(), msg.size());
 			s_ws_connect_handler();
             break;
         }
+		// 收到websocket消息帧
         case MG_EV_WEBSOCKET_FRAME:{
             struct websocket_message *wm = (struct websocket_message *)event_data;
             sLog->logInfo("receive websocket msg: %s\n", wm->data);
             break;
         }
+		// 断开链接
         case MG_EV_CLOSE:{
             if(isWebsocket(connection))
                 sLog->logInfo("Websocket connection:%p closed\n", connection);
             break;
         }
+		// 收到http请求
         case MG_EV_HTTP_REQUEST:{
             http_message *http_req = (http_message *)event_data;
             HandleHttpEvent(connection, http_req);
@@ -98,6 +149,12 @@ void WebsocketServer::OnEvent(mg_connection *connection, int event_type, void *e
     }
 }
 
+/**
+ * @brief 处理http请求
+ * 
+ * @param connection   连接
+ * @param http_req     http请求消息
+ */
 void WebsocketServer::HandleHttpEvent(mg_connection *connection, http_message *http_req)
 {
 	std::string req_str = std::string(http_req->message.p, http_req->message.len);
@@ -131,6 +188,12 @@ void WebsocketServer::HandleHttpEvent(mg_connection *connection, http_message *h
 	}
 }
 
+/**
+ * @brief 发送websocket消息
+ * 
+ * @param msg         消息内容
+ * @return int        0成功
+ */
 int WebsocketServer::SendWebsocketMsg(const std::string &msg){
     struct mg_connection *c;
     for (c = mg_next(&m_mgr, NULL); c != NULL; c = mg_next(&m_mgr, c)) {
@@ -141,6 +204,12 @@ int WebsocketServer::SendWebsocketMsg(const std::string &msg){
     return 0;
 }
 
+/**
+ * @brief http回复
+ * 
+ * @param connection   连接
+ * @param rsp          回复内容
+ */
 void WebsocketServer::SendRsp(mg_connection *connection, std::string rsp)
 {
 	sLog->logInfo("send response %s", rsp.c_str());
@@ -153,6 +222,12 @@ void WebsocketServer::SendRsp(mg_connection *connection, std::string rsp)
 	mg_send_http_chunk(connection, "", 0);
 }
 
+/**
+ * @brief 释放
+ * 
+ * @return true 
+ * @return false 
+ */
 bool WebsocketServer::Close(){
     mg_mgr_free(&m_mgr);
 	return true;

@@ -1,5 +1,8 @@
 // 不考虑任何版本IE浏览器的兼容性问题
 
+/*
+ * 定义$为css选择器风格选取元素
+ */
 function $(style){
 	'use script';
 	if(typeof style != 'undefined'){
@@ -7,6 +10,10 @@ function $(style){
 	}
 }
 
+/*
+ * 判断页数是否合理
+ * @param {number} pagenum 
+ */
 function isPageValid(pagenum) {
     console.log("" + pagenum);
     if (isNaN(pagenum)) {
@@ -22,7 +29,10 @@ function isPageValid(pagenum) {
     return true;
 }
 
-function setImage() {
+/**
+ * 查看图片
+ */
+function viewImage() {
     let listItem = document.querySelectorAll('.active>div');
     let str = "";
     let len = listItem.length;
@@ -49,6 +59,10 @@ function setImage() {
     // }
 }
 
+/*
+ * canvas中绘制ppm图像 废止不用
+ * @param {*} ppmblob ppm的二进制
+ */
 function displayppm(ppmblob) {
     // Remove lines comment lines beginning with '#', then rejoin.
     let reader = new FileReader();
@@ -63,7 +77,7 @@ function displayppm(ppmblob) {
     let [magic, width, height, maxVal, ...pixelData] = fields
 
     if (magic !== 'P6')
-    return console.error(`Expected 'P3' magic number at the beginning of the file, got ${magic}`)
+    return console.error(`Expected 'P6' magic number at the beginning of the file, got ${magic}`)
 
     width = parseInt(width, 10)
     if (isNaN(width))
@@ -117,7 +131,10 @@ function setTask() {
     }
 }
 
-
+/*
+ * 收到服务器端信息更新当前处理作业
+ * @param {number} index 序号
+ */
 function updateIndex(index) {
     let items = document.querySelectorAll('.task-item');
     let lastItem = $('.task-item.cur');
@@ -131,13 +148,19 @@ function updateIndex(index) {
     items[index-1].classList.add('cur');
     changeView(index);
 }
-
+/*
+ * 更新视野
+ */
 function changeView() {
     let unitHeight = $('.task-item').offsetHeight;
     let index = Array.from(document.querySelectorAll('.task-item')).indexOf($('.active'));
     $('ul').scrollTo(0,(index-3)*unitHeight);
 }
 
+/*
+ * 读取服务器发来的作业信息并更新ul列表
+ * @param {string} rcv 收到的信息
+ */
 function readWorkList(rcv){
     let ul = $("ul");
     ul.innerHTML = "";
@@ -173,6 +196,9 @@ function readWorkList(rcv){
     }
 }
 
+/*
+ * 切换相机触发方式
+ */
 function changeMode(){
     let xhr = new XMLHttpRequest();
     xhr.open('POST', 'api/changeMode');
@@ -210,6 +236,9 @@ function changeMode(){
     }
 }
 
+/**
+ * 触发相机拍摄
+ */
 function trigger(){
     let xhr = new XMLHttpRequest();
     xhr.open('GET', 'api/softTrigger');
@@ -217,6 +246,10 @@ function trigger(){
     xhr.send();
 }
 
+/*
+ * 读取服务器发来的原图信息并更新列表项属性
+ * @param {string} rcv 收到的信息
+ */
 function readOriginList(rcv){
     let index = 0;
     let workList = document.querySelectorAll(".task-item");
@@ -229,27 +262,40 @@ function readOriginList(rcv){
     }
 }
 
+/*
+ * 判断是否是当前状态信息
+ * @param {string} str 
+ */
 function isState(str) {
     let reg = /^statemsg/;
     return reg.test(str);
 }
 
+/*
+ * 判断是否是列表信息
+ * @param {string} str 
+ */
 function isList(str) {
     let reg = /^listmsg/;
     return reg.test(str);
 }
 
+/*
+ * 判断是否是相机触发状态信息
+ * @param {string} str 
+ */
 function isTrigger(str) {
     let reg = /^trigger/;
     return reg.test(str);
 }
 
+// 添加按钮回调函数
 $('#page_button').addEventListener(
     "click", setTask
 )
 
 $('#img_button').addEventListener(
-    'click', setImage
+    'click', viewImage
 )
 
 $('#mode_button').addEventListener(
@@ -265,7 +311,7 @@ ws.onopen = function()
     ws.send("发送数据");
     console.log("数据发送中...");
 };
-
+// websocket接收消息回调
 ws.onmessage = function (evt) 
 {
     let received_msg = evt.data;
@@ -313,15 +359,14 @@ ws.onmessage = function (evt)
         console.log("接收数据.."+received_msg);
     }
 };
-
+// websocket关闭链接回调
 ws.onclose = function()
 { 
     // 关闭 websocket
     console.log("连接已关闭..."); 
 };
 
-
-
+// 列表项点击回调
 var ele = $('ul');
 ele.addEventListener('click', function(e){
     var element = e.target;

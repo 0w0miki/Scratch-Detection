@@ -316,6 +316,7 @@ ws.onmessage = function (evt)
 {
     let received_msg = evt.data;
     if(isState(received_msg)){
+        // 当前处理状态
         received_msg = received_msg.replace(/^statemsg/,"");
         let rcv = JSON.parse(received_msg);
         console.log(rcv);
@@ -325,6 +326,7 @@ ws.onmessage = function (evt)
         let index = rcv["index"];
         updateIndex(index);
     }else if(isList(received_msg)){
+        // 作业列表
         let workArray = Array.from(document.querySelectorAll('.task-item'));
         let select_index = workArray.indexOf($('.active'));
         let index = workArray.indexOf($('.cur'));
@@ -345,6 +347,7 @@ ws.onmessage = function (evt)
         items[index].classList.add("cur");
         changeView(index);
     }else if(isTrigger(received_msg)){
+        // 当前触发状态信息
         received_msg = received_msg.replace(/^trigger:/,"");
         console.log("trigger:"+received_msg);
         if(Number(received_msg)){

@@ -6,6 +6,7 @@
 System::System(){
 	work_list_.reserve(5000);
 	origin_list_.reserve(5000);
+	mask_backup_.reserve(5000);
 
 	pthread_mutex_init(&slv_list_mutex_, NULL);
     pthread_mutex_init(&result_mutex_, NULL);
@@ -27,9 +28,10 @@ System::System(){
 						result_root_, 
 						&unsolved_list_, 
 						&work_name_list_, 
-						&work_count_list_, 
+						&work_count_list_,
 						&batch_origin_list_,
 						&batch_count_list_,
+						&mask_list_,
 						SECDETECT);
 }
 
@@ -65,6 +67,7 @@ System::System(int firstflag){
 						&work_count_list_, 
 						&batch_origin_list_,
 						&batch_count_list_,
+						&mask_list_,
 						firstflag);
 }
 
@@ -202,7 +205,7 @@ void System::run(){
 							break;
 						case 'C':
 						case 'c':
-							unsolved_list_.push("a.bmp");
+							unsolved_list_.push("print_915550409_9.ppm");
 							break;
 						//发送一次软触发命令
 						case 'S':
@@ -277,6 +280,8 @@ void System::updateState(){
 			++i;
 		}
 		work_list_.erase(work_list_.begin(), work_list_.begin()+n-m-10);
+		mask_backup_.erase(mask_backup_.begin(), mask_backup_.begin()+n-m-10);
+		origin_list_.erase(origin_list_.begin(), origin_list_.begin()+n-m-10);
 		send_flag = 2;
 	}
 	if(n != last_length){
@@ -379,6 +384,7 @@ int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 			remain = -1;
 		}else{
 			work_name_list_.pop_front();
+			mask_list_.pop_front();
 			work_count_list_.pop_front();
 			remain -= first_num;
 		}
@@ -388,6 +394,7 @@ int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 			if(remain > id_num){
 				// 不是当前id
 				work_name_list_.pop_front();
+				mask_list_.pop_front();
 				work_count_list_.pop_front();
 				remain -= id_num;
 			}else{
@@ -440,6 +447,8 @@ int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 				filename = "reprint_" + to_string(work_list_[id_index].id) + "_" + to_string(work_list_[id_index].page);
 			work_name_list_.push_front(filename);
 			work_count_list_.push_front(work_list_[id_index].reprint_flag ? 1 : work_list_[id_index].page);
+			// TODO 添加mask
+			
 			remain -= first_num;
 			--id_index;
 		}
@@ -455,6 +464,8 @@ int  System::setCurWork(int index, int64_t jobid, int64_t curpage){
 					filename = "reprint_" + to_string(work_list_[id_index].id) + "_" + to_string(work_list_[id_index].page);
 				work_name_list_.push_front(filename);
 				work_count_list_.push_front(id_num);
+				// TODO 添加mask
+
 				remain -= id_num;
 				--id_index;
 			}else{
@@ -621,9 +632,10 @@ int System::readNetParam(){
  * @brief 下载列表中的文件
  * 
  * @param file_list 	需要下载的文件url列表
+ * @param type 			下载的文件类型 0模板图片 1模切线图片
  * @return int 			-1失败 curl代码
  */
-int System::downloadFileList(std::vector<string> file_list){
+int System::downloadFileList(std::vector<string> file_list, int type){
 	int nCode = -1;
 	std::string sIP = client_host_;
 	unsigned int nPort = client_port_;
@@ -658,22 +670,36 @@ int System::downloadFileList(std::vector<string> file_list){
 		sLog->logInfo("download url path: %s",file_url.c_str());
 
 		pCurlClient->setUrlPath(sUrlPath);
-		std::string sFileName = "../images/templates/";
+		std::string sFileName;
+		std::string sLocalFile;
+		switch (type)
+		{
+		case 1:
+			sLocalFile = "../images/mask/";
+			sLocalFile.append(file_url);
+			break;
+		case 0:
+		default:
+			sLocalFile = "../images/templates/";
+			sFileName = "../images/templates/";
+			break;
+		}
+
 		sFileName.append(file_url);
 		int nFormat = 0;
-
-		std::string sLocalFile = "../images/templates/";
 		std::vector<std::string> substring;
 		SplitString(file_url,substring,"/");
 		int sublen = substring.size();
-		if( sublen < 2 ){
+		if(type == 1){
+			nCode = pCurlClient->downloadFile(sFileName, sLocalFile, nFormat);
+			sLog->logDebug("%s download status %d", sFileName.c_str(), nCode);
+		}else if( sublen < 2 ){
 			sLog->logError("cannot split download filename");
 		}else{
 			sLocalFile.append(substring[sublen-2]);
 			sLocalFile.append("/");
 			sLocalFile.append(substring[sublen-1]);
 			nCode = pCurlClient->downloadFile(sFileName, sLocalFile, nFormat);
-			// nCode = pCurlClient->downloadFile(sFileName, nFormat);
 			sLog->logDebug("%s download status %d", sFileName.c_str(), nCode);
 		}
 	}
@@ -771,20 +797,49 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 				int64_t work_id = root["printwork"][i]["printJobID"].asInt64();
 				int work_count = root["printwork"][i]["printQuantity"].asInt();
 				// 判断文件夹是否存在
+				// TODO 改成配置文件
 				std::string origin_dir = "../images/templates/";
 				std::string dir = "../images/templates/" + to_string(work_id);
+				std::string mask_dir = "../images/mask";
 				// origin_dir.append(to_string(work_id));
+				// 检查是否存在相应文件夹
 				if(isDirExist(dir) == -1){
 					// 下载所有原图，返回错误
-					return_state = -1;
+					return_state |= 1;
 					mkdir(dir.c_str(),S_IRWXU|S_IRWXG|S_IRWXO);
 				}
 				
+				// TODO 添加mask,每个id只对应一个mask
+				string mask_file_name = "";
+				if(root["printwork"][i]["mask"].empty()){
+					#ifndef MASK_TEST 
+					sLog->logError("no mask information received");
+					#else
+					mask_file_name = "mask.png";
+					#endif
+				}else{
+					if(!root["printwork"][i]["mask"].isString()){
+						sLog->logError("mask is not string!");
+					}else{
+						string mask_url = root["printwork"][i]["mask"].asString();
+						std::vector<std::string> split_res;
+						SplitString(mask_url,split_res,"/");
+						auto iter = split_res.rbegin();
+						mask_file_name = *iter;
+						string filename = mask_dir + mask_file_name;
+						if(access(mask_file_name.c_str(),F_OK) == -1){
+							download_list.push_back(mask_url);
+							return_state |= 4;
+						}
+					}
+				}
+
+				// 处理原图和work_name
 				if(root["printwork"][i]["pictureLink"].isString()){
-					// 图像是string 所有都是这个图
+					// 图像链接是string 所有要打的都是这个原图
 
 					std::string file_url = root["printwork"][i]["pictureLink"].asString();
-					
+					// 本地文件名
 					std::string localfile="";
 					std::vector<std::string> substring;
 					SplitString(file_url,substring,"/");
@@ -796,30 +851,33 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 						localfile.append("/");
 						localfile.append(substring[sublen-1]);
 					}
-					
+					// 网页用
 					OriginInfo oinfo{localfile,work_count};
 					origin_list_.push_back(oinfo);
-
+					// 检测用
 					batch_count_list_.push_back(work_count);
 					batch_origin_list_.push_back(localfile);
 
-					if(return_state == -1)
-						download_list.push_back(root["printwork"][i]["pictureLink"].asString());
+					if(return_state & 1)
+						download_list.push_back(file_url);
 					else{
 						std::string filename = origin_dir + localfile;
+						// 没有这个文件, 添加到下载队列中
 						if(access(filename.c_str(),F_OK) == -1){
-							return_state = -3;
-							download_list.push_back(root["printwork"][i]["pictureLink"].asString());
+							return_state |= 4;
+							download_list.push_back(file_url);
 							sLog->logWarn("%s does not exist, try to download", filename.c_str());
 						}
 					}
 					sLog->logInfo("set batch num: %d", work_count);
-					sLog->logInfo("set origin image url %s", root["printwork"][i]["pictureLink"].asString().c_str());
+					sLog->logInfo("set origin image url %s", file_url.c_str());
 					std::string work_name = "print_";
 					work_name.append(to_string(work_id));
 					work_name_list_.push_back(work_name);
 					work_count_list_.push_back(work_count);
-					
+					mask_list_.push_back(mask_file_name);
+					mask_backup_.push_back(mask_file_name);
+
 					WorkInfo winfo;
 					winfo.id = work_id;
 					winfo.page = work_count;
@@ -828,14 +886,17 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 					sLog->logInfo("set work name: %s", work_name.c_str());
 					sLog->logInfo("set work count: %d", work_count);
 				}else{
-					// 列表
+					// 原图是列表形式
 					int link_size = root["printwork"][i]["pictureLink"].size();
 					if(root["printwork"][i]["printRedoFlag"].asBool() == false){
-						// 不是重打
+						// 不是重打, 只要1个work_name
 						std::string work_name = "print_";
 						work_name.append(to_string(work_id));
 						work_name_list_.push_back(work_name);
 						work_count_list_.push_back(work_count);
+						mask_list_.push_back(mask_file_name);
+						mask_backup_.push_back(mask_file_name);
+
 						WorkInfo winfo;
 						winfo.id = work_id;
 						winfo.page = work_count;
@@ -846,7 +907,7 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 					for(int j = 0; j < link_size; j++)
 					{
 						if(root["printwork"][i]["printRedoFlag"].asBool() == true){
-							// 重打
+							// 重打, 每个work_name以reprint为前缀, 每个对应1个
 							int reprint_id = root["printwork"][i]["printWorkNumber"][j].asInt();
 							std::string work_name = "reprint_";
 							work_name.append(to_string(work_id));
@@ -854,6 +915,9 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 							work_name.append(to_string(reprint_id));
 							work_name_list_.push_back(work_name);
 							work_count_list_.push_back(1);
+							mask_list_.push_back(mask_file_name);
+							mask_backup_.push_back(mask_file_name);
+
 							WorkInfo winfo;
 							winfo.id = work_id;
 							winfo.page = reprint_id;
@@ -882,39 +946,41 @@ bool System::handle_start(std::string url, std::string body, mg_connection *c, O
 
 						batch_count_list_.push_back(1);
 						batch_origin_list_.push_back(localfile);
-						if(return_state == -1){
-							std::string down_filename;
-							// down_filename.append("/");
-							down_filename = root["printwork"][i]["pictureLink"][j].asString();
-							download_list.push_back(down_filename);
+						if(return_state & 1){
+							download_list.push_back(file_url);
 						}else{
 							std::string filename = origin_dir + localfile;
 							if(access(filename.c_str(),F_OK) == -1){
-								return_state = -3;
-								download_list.push_back(root["printwork"][i]["pictureLink"][j].asString());
+								return_state |= 4;
+								download_list.push_back(file_url);
 								sLog->logWarn("%s does not exist, try to download", filename.c_str());
 							}
 						}
 						sLog->logInfo("set batch num: %d", 1 );
-						sLog->logInfo("set origin image url %s", root["printwork"][i]["pictureLink"][j].asString().c_str());
+						sLog->logInfo("set origin image url %s", file_url.c_str());
 					}
 				}
 			}
 		}else{
 			sLog->logError("no work array");
-			return_state = -2;
+			return_state |= 2;
 		}
 	}else{
 		sLog->logError("Jsoncpp error: %s", errs.c_str());
 	}
 	
-	std::string response = "{ \"StatusCode\": " + to_string(return_state) + "}";
+	std::string response = "{ \"StatusCode\": " + to_string(-return_state) + "}";
 	rsp_callback(c, response);
 
-	if(return_state == -1 || return_state == -3){
+	if(return_state & 1 || return_state & 4){
 		wait(1);
-		sLog->logInfo("start download");
+		sLog->logInfo("start download template images");
 		downloadFileList(download_list);
+	}
+	if(return_state & 8){
+		wait(1);
+		sLog->logInfo("start download mask");
+		downloadFileList(download_list, 1);
 	}
 
 

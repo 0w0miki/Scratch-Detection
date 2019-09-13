@@ -7,6 +7,7 @@ Detector::Detector():
     k_bigpro_(0.001),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
+    mask_dir_("../images/mask/"),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
@@ -41,6 +42,7 @@ Detector::Detector( pthread_mutex_t* mutex, std::queue<string>* list ):
     k_bigpro_(0.001),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
+    mask_dir_("../images/mask/"),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
@@ -83,6 +85,7 @@ Detector::Detector(
     k_bigpro_(0.001),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
+    mask_dir_("../images/mask/"),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
@@ -127,6 +130,7 @@ Detector::Detector(
     std::deque<int>* work_count_list, 
     std::deque<string>* batch_origin_list, 
     std::deque<int>* batch_count_list,
+    std::deque<std::string>* mask_list,
     int detectionId,
     pthread_t threadId
 ):
@@ -136,6 +140,7 @@ Detector::Detector(
     k_bigpro_(0.001),
     template_dir_("../images/templates/"),
     img_dir_("../images/test/"),
+    mask_dir_("../images/mask/"),
     ROI_y_(0),
     ROI_height_(2400),
     scratch_pixel_num_(3),
@@ -169,7 +174,8 @@ Detector::Detector(
     work_count_list_ = work_count_list;
     batch_origin_list_ = batch_origin_list;
     batch_count_list_ = batch_count_list;
-    
+    mask_list_ = mask_list;
+
     input_type_ = DETECTA4 | detectionId;
 }
     
@@ -755,14 +761,14 @@ int Detector::checkPos() {
     int i,j;
     int step = N/2;
     // 扩充边界为图像边缘
-    copyMakeBorder(img_gray_,bordered_img,step,step,step,step,cv::BORDER_REFLECT101);
+    copyMakeBorder(label_,bordered_img,step,step,step,step,cv::BORDER_REFLECT101);
     for(i = -step; i <= step; ++i){
         for(j = -step; j <= step; ++j){
             Mat A = bordered_img.clone();
             // 移动
-            Mat mat = A(Range(step+i,img_gray_.rows+step+i),Range(step+j,step+img_gray_.cols+j));
+            Mat mat = A(Range(step+i,label_.rows+step+i),Range(step+j,step+label_.cols+j));
             
-            absdiff(template_img_, mat, diff);
+            absdiff(template_label_, mat, diff);
             diff.convertTo(diff,CV_64F);
             diff=diff.mul(diff);
             // diff= diff.mul(diff);
@@ -1009,15 +1015,22 @@ int Detector::setOriginImg(string filename){
         sLog->logError("No source image!!!");
         return -1;
     }
-    // 裁切一些
-    cutPx(template_img_,left_cut_px_,CUT_HORIZON_LEFT);
-    cutPx(template_img_,right_cut_px_,CUT_HORIZON_RIGHT);
     if(input_type_ & DETECTA4){
         template_label_ = template_img_;
     }else{
         template_label_ = getLabelImg(template_img_);
     }
-    // cv::cvtColor(template_img_,template_label_,CV_BGR2GRAY);
+    #ifdef USE_MASK
+    if(cur_mask_.size() != template_img_.size()){
+        sLog->logWarn("%s","different size for template and mask.");
+    }else{
+        template_label_.copyTo(template_label_, cur_mask_);
+    }
+    #endif
+    // 裁切一些
+    cutPx(template_label_,left_cut_px_,CUT_HORIZON_LEFT);
+    cutPx(template_label_,right_cut_px_,CUT_HORIZON_RIGHT);
+
     setThresh();
     count_ = 1;
     return 0;
@@ -1033,16 +1046,22 @@ int Detector::setOriginImg(cv::Mat img){
         sLog->logError("No source image!!!");
         return -1;
     }
-    // 裁切一些
-    cutPx(img,left_cut_px_,CUT_HORIZON_LEFT);
-    cutPx(img,right_cut_px_,CUT_HORIZON_RIGHT);
-
     template_img_ = img;
     if(input_type_ & DETECTA4){
         template_label_ = template_img_;
     }else{
         template_label_ = getLabelImg(template_img_);
     }
+    #ifdef USE_MASK
+    if(cur_mask_.size() != template_img_.size()){
+        sLog->logWarn("%s","different size for template and mask.");
+    }else{
+        template_label_.copyTo(template_label_, cur_mask_);
+    }
+    #endif
+    // 裁切一些
+    cutPx(template_label_,left_cut_px_,CUT_HORIZON_LEFT);
+    cutPx(template_label_,right_cut_px_,CUT_HORIZON_RIGHT);
     setThresh();
     count_ = 1;
     return 0;
@@ -1090,14 +1109,24 @@ int Detector::setImg(string filename){
     ROI.y = ROI_y_;
     ROI.height = ROI_height_;
     cout<<img.size()<<endl;
-    cout<<ROI.y<<","<<ROI.height<<endl;
-    img_gray_ = img(ROI);
+    sLog->logDebug("ROI: y:%d, height: %d",ROI.y,ROI.height);
+    if(ROI.y + ROI.height <= img.rows && ROI.y >= 0){
+        img_gray_ = img(ROI);
+    }else{
+        sLog->logError("ROI size fault too large height or too small y");
+        return -3;
+    }
     // namedWindow("img",WINDOW_NORMAL);
     // imshow("img",img_gray_);
     // waitKey();
 
+    // label_ = img_gray_;
+    adjustSize(img_gray_, template_img_);
+    #ifdef USE_MASK
+    img_gray_.copyTo(label_,cur_mask_);
+    #else
     label_ = img_gray_;
-    adjustSize(img_gray_, template_label_);
+    #endif
     adjustSize(label_, template_label_);
     // namedWindow("label_",WINDOW_NORMAL);
     // imshow("label_",template_label_);
@@ -1247,11 +1276,11 @@ int Detector::setParam(){
  */
 void Detector::setThresh(){
 
-    Mat temp = template_img_ > bin_thresh_;
+    Mat temp = template_label_ > bin_thresh_;
     Scalar temp_sum = sum(temp);
     sLog->logDebug("temp sum: %f", temp_sum[0]/255);
 
-    Mat temp_label = (255-template_img_) > bin_thresh_;
+    Mat temp_label = (255-template_label_) > bin_thresh_;
     Scalar label_sum = sum(temp_label);
     sLog->logDebug("temp label sum: %f", label_sum[0]/255);
 
@@ -1350,6 +1379,7 @@ void Detector::ProcDetect(){
             // origin_name.append("/");
             std::string origin_name = batch_origin_list_->front();
             // origin_name.append(batch_origin_list_->front());
+            loadMask();
             if(setOriginImg(origin_name) == 0){
                 sLog->logInfo("<----------- set new origin image ----------->");
                 origin_flag = true;
@@ -1381,6 +1411,7 @@ void Detector::ProcDetect(){
             batch_count_list_->pop_front();
             if(!batch_origin_list_->empty()){
                 // 出队后队列还有图
+                loadMask();
                 setOriginImg(batch_origin_list_->front());
             }else{
                 // 出队后队列没图 等待下一批图
@@ -1508,4 +1539,27 @@ int Detector::stopThread(){
     start_detect_ = false;
     pthread_cancel(this->detection_thread_);
     return STATE_OK;
+}
+
+int Detector::loadMask(){
+    if(mask_list_->empty()){
+        sLog->logError("mask list empty");
+        return -1;
+    }
+    string filename = mask_list_->front();
+    mask_list_->pop_front();
+    string file = mask_dir_ + filename;
+    cur_mask_ = cv::imread(file,0);
+    if(!cur_mask_.data){
+        sLog->logError("No mask image!!!");
+        return -2;
+    }
+    sLog->logInfo("load mask: %s", filename.c_str());
+    // TODO 从模切线制作mask
+    floodFill(cur_mask_,Point2i(0,0),0);
+    cur_mask_ = cur_mask_ > 150;
+    // DEBUG
+    // namedWindow("mask",WINDOW_FREERATIO);
+    // imshow("mask",cur_mask_);
+    // waitKey();
 }

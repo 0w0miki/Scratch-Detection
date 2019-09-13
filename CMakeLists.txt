@@ -115,58 +115,23 @@ target_link_libraries(System
 )
 
 # NOTE RELEASE
-add_executable(server_demo
-    test/server_demo.cpp
-    src/web/http_server.cpp
-    src/utils.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(server_demo
-    ${CURL_LIBRARY}
-    ${OpenCV_LIBS}
-    Camera
-    Detection
-    Client
-    Log
-)
-
 add_executable(color
     src/color.cpp
-    src/web/http_server.cpp
-    src/utils.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
 )
 target_link_libraries(color
-    ${CURL_LIBRARY}
     ${OpenCV_LIBS}
-    Camera
-    Detection
-    Client
-    Log
+    System
+)
+
+add_executable(mono_demo
+    test/mono_demo.cpp
+)
+target_link_libraries(mono_demo
+    ${OpenCV_LIBS}
+    System
 )
 
 # NOTE TEST
-add_executable(mono_demo
-    test/mono_demo.cpp
-    src/web/http_server.cpp
-    src/utils.cpp
-    src/Serial.cpp
-    third_party/mongoose/mongoose.c
-    third_party/jsoncpp/src/jsoncpp.cpp
-)
-target_link_libraries(mono_demo
-    ${CURL_LIBRARY}
-    ${OpenCV_LIBS}
-    Camera
-    Detection
-    Client
-    Log
-)
-
 add_executable(serial_demo
     test/serial.cpp
     src/Serial.cpp

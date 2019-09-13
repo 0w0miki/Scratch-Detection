@@ -45,6 +45,7 @@ private:
     cv::Mat img_resize_;                    // 【废弃】更改尺寸的拍摄图像
     cv::Mat label_;                         // 图像中的标签
     std::vector<Point2f> img_points_;       // 【废弃】图像边角点
+    cv::Mat cur_mask_;                      // 当前的掩模
     
     // 线程
     pthread_mutex_t* mutex_;                // 待处理队列 锁
@@ -58,6 +59,7 @@ private:
     float k_bigpro_;                        // 计算划痕问题阈值的比例因子
     string template_dir_;                   // 模板图片路径
     string img_dir_;                        // 拍摄图片路径
+    string mask_dir_;                       // 模切线图片路径
     int ROI_y_;                             // A4纸图像y轴上边沿坐标
     int ROI_height_;                        // A4纸区域图像高
     int left_cut_px_;                       // 左侧切除像素
@@ -100,6 +102,7 @@ private:
     std::deque<int>* work_count_list_;                      // 作业的数量
     std::deque<string>* batch_origin_list_;                 // 原图文件名
     std::deque<int>* batch_count_list_;                     // 一张原图对应的照片数量
+    std::deque<string>* mask_list_;                         // 模切线列表
     std::vector<cv::Point2i>* desired_size_list_;           // 【废弃】
     std::vector<cv::Point2i>::iterator desired_size_iter_;  // 【废弃】这里不能用vector迭代器 会有失效的问题
 
@@ -157,6 +160,7 @@ public:
             std::deque<int>* work_count_list_, 
             std::deque<string>* batch_origin_list, 
             std::deque<int>* batch_count_list, 
+            std::deque<std::string>* mask_list,
             int detectionId = 0, 
             pthread_t threadId = 2);
     ~Detector();
@@ -177,6 +181,7 @@ public:
     int64_t getIdCount();
     void setCount(int num){count_ = num;}
     void setIdCount(int64_t id){id_count_ = id;}
+    int loadMask();
     inline void callPause(){state_ = DETECTOR_READY_TO_PAUSE;}
     inline void restart(){state_ = DETECTOR_RUN;}
     inline bool isPause(){return DETECTOR_PAUSE == state_;}

@@ -13,6 +13,8 @@
 #include "Serial.h"
 #include "Log.hpp"
 
+#define MASK_TEST
+
 class System
 {
 
@@ -33,13 +35,15 @@ struct OriginInfo{
 
 private:
     // 批次信息
-    std::deque<std::string>     work_name_list_;        // 作业名队列
+    std::deque<std::string> work_name_list_;            // 作业名队列
     std::deque<int>         work_count_list_;           // 作业数队列
-    std::deque<std::string>     batch_origin_list_;     // 原图地址队列
+    std::deque<std::string> batch_origin_list_;         // 原图地址队列
     std::deque<int>         batch_count_list_;          // 原图对应数量队列
+    std::deque<std::string> mask_list_;                 // 模切线地址队列
 
     std::vector<WorkInfo>       work_list_;             // 给网页的作业信息表
     std::vector<OriginInfo>     origin_list_;           // 给网页的原图信息表
+    std::vector<string>         mask_backup_;           // 便于网页修改的时候重新加入过去的mask
 
     std::queue<string> unsolved_list_;                  // 待处理图像队列
 
@@ -71,7 +75,7 @@ private:
 
     int readNetParam();                                 // 读取参数配置
 
-    int downloadFileList(std::vector<string> file_list);// 从下载队列中下载文件
+    int downloadFileList(std::vector<string> file_list, int type = 0);// 从下载队列中下载文件
 
     std::string getJsonWorkList();                      // worklist->json websocket发送给网页
     std::string getJsonOriginList();                    // originlist->json websocket发送给网页
